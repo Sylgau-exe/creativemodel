@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Creative Export Engine — private preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{--ink:#0B1826;--ink-2:#12283C;--line:#2B4C69;--ivory:#F3EDE2;--muted:#9FB3C4;--dim:#6B8194;--gold:#E3A63B;--gold-2:#F5C96B;--teal:#4FB8AD;--teal-2:#8BD9D0;
+    --display:"Fraunces",Georgia,serif;--body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;color-scheme:dark}
+  *{box-sizing:border-box}
+  html,body{min-height:100%}
+  body{margin:0;background:var(--ink);color:var(--ivory);font-family:var(--body);font-size:15px;line-height:1.5;display:grid;place-items:center;padding:24px 16px;
+    background-image:radial-gradient(700px 600px at 20% 10%,rgba(227,166,59,.14),transparent 60%),radial-gradient(800px 700px at 100% 100%,rgba(79,184,173,.12),transparent 60%)}
+  .card{width:min(100%,520px);background:linear-gradient(165deg,#1B3D5A,#102539);border:1px solid rgba(227,166,59,.5);border-radius:22px;padding:28px 28px 24px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
+  h1{font-family:var(--display);font-weight:700;font-size:clamp(24px,4vw,32px);line-height:1.05;margin:0 0 10px;letter-spacing:-.01em}
+  p.lead{color:var(--muted);margin:0 0 22px;font-size:14px}
+  .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--ink-2);flex:none}
+  .lang button{background:none;border:0;color:var(--muted);font:600 12px/1 var(--body);letter-spacing:.08em;padding:9px 14px;cursor:pointer}
+  .lang button[aria-pressed="true"]{background:var(--gold);color:var(--ink)}
+  form{display:flex;flex-direction:column;gap:14px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:500}
+  input{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:12px;color:var(--ivory);font:500 15px/1.2 var(--body);padding:12px 14px;width:100%}
+  input:focus{outline:2px solid var(--gold-2);outline-offset:1px}
+  input.code{font-family:"IBM Plex Mono",Menlo,monospace;letter-spacing:.12em;text-transform:uppercase}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:480px){.row{grid-template-columns:1fr}}
+  button.go{margin-top:6px;background:var(--gold);color:var(--ink);border:0;border-radius:999px;padding:14px 18px;font:600 15px/1 var(--body);cursor:pointer}
+  button.go:hover{background:var(--gold-2)} button.go:disabled{opacity:.6;cursor:wait}
+  .err{color:#F0A0A0;font-size:13px;margin:0;min-height:1.2em}
+  .fine{color:var(--dim);font-size:12px;margin:18px 0 0}
+  .fine b{color:var(--muted);font-weight:500}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="top">
+    <div><p class="eyebrow" data-i18n="eyebrow"></p><h1 data-i18n="title"></h1></div>
+    <div class="lang" role="group" aria-label="Language"><button id="lang-en" type="button" aria-pressed="true">EN</button><button id="lang-fr" type="button" aria-pressed="false">FR</button></div>
+  </div>
+  <p class="lead" data-i18n="lead"></p>
+  <form id="f" autocomplete="on" novalidate>
+    <div class="row">
+      <label><span data-i18n="name"></span><input name="name" required autocomplete="name" maxlength="120"></label>
+      <label><span data-i18n="org"></span><input name="organization" autocomplete="organization" maxlength="200"></label>
+    </div>
+    <label><span data-i18n="email"></span><input name="email" type="email" required autocomplete="email" maxlength="200" inputmode="email"></label>
+    <label><span data-i18n="code"></span><input name="code" class="code" required autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="40"></label>
+    <p class="err" id="err" aria-live="polite"></p>
+    <button class="go" type="submit" id="go" data-i18n="go"></button>
+  </form>
+  <p class="fine" data-i18n="fine"></p>
+</main>
+<script>
+const UI={
+  en:{eyebrow:"Private preview", title:"Creative Export Engine", lead:"An interactive model shared for opinions. Enter the access code you received, and tell us who you are so we know who has looked at it.",
+      name:"Your name", org:"Organization (optional)", email:"Email", code:"Access code", go:"Open the model",
+      fine:"Your name and email are kept only to know who reviewed the model and to follow up on your comments. Nothing is shared or added to a mailing list.",
+      e_fields:"Please enter your name, a valid email and the access code.", e_code:"That access code is not right.", e_net:"Could not connect. Please try again."},
+  fr:{eyebrow:"Aperçu privé", title:"Moteur d'exportation créatif", lead:"Un modèle interactif partagé pour recueillir des avis. Entrez le code d'accès reçu et dites-nous qui vous êtes, pour que nous sachions qui l'a consulté.",
+      name:"Votre nom", org:"Organisation (facultatif)", email:"Courriel", code:"Code d'accès", go:"Ouvrir le modèle",
+      fine:"Votre nom et votre courriel servent uniquement à savoir qui a consulté le modèle et à donner suite à vos commentaires. Rien n'est partagé ni ajouté à une liste d'envoi.",
+      e_fields:"Veuillez entrer votre nom, un courriel valide et le code d'accès.", e_code:"Ce code d'accès n'est pas le bon.", e_net:"Connexion impossible. Veuillez réessayer."}
+};
+let LANG="en";
+try{ const q=new URLSearchParams(location.search).get("lang"), st=localStorage.getItem("cee-lang");
+  LANG = q==="fr"?"fr" : q==="en"?"en" : st==="fr"?"fr" : st==="en"?"en" : (navigator.language||"").toLowerCase().startsWith("fr")?"fr":"en"; }catch(e){}
+function apply(){ document.querySelectorAll("[data-i18n]").forEach(e=>e.textContent=UI[LANG][e.dataset.i18n]); document.documentElement.lang=LANG==="fr"?"fr-CA":"en-CA";
+  document.getElementById("lang-en").setAttribute("aria-pressed",LANG==="en"); document.getElementById("lang-fr").setAttribute("aria-pressed",LANG==="fr"); }
+document.getElementById("lang-en").onclick=()=>{LANG="en";try{localStorage.setItem("cee-lang","en")}catch(e){};apply();};
+document.getElementById("lang-fr").onclick=()=>{LANG="fr";try{localStorage.setItem("cee-lang","fr")}catch(e){};apply();};
+apply();
+const f=document.getElementById("f"), err=document.getElementById("err"), go=document.getElementById("go");
+f.addEventListener("submit", async (ev)=>{
+  ev.preventDefault(); err.textContent="";
+  const d={name:f.name.value.trim(), organization:f.organization.value.trim(), email:f.email.value.trim(), code:f.code.value.trim(), lang:LANG};
+  if(!d.name || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email) || !d.code){ err.textContent=UI[LANG].e_fields; return; }
+  go.disabled=true;
+  try{
+    const r=await fetch("/api/enter",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
+    if(r.ok){ location.replace("/"); return; }
+    const j=await r.json().catch(()=>({}));
+    err.textContent = j.error==="code" ? UI[LANG].e_code : j.error==="fields" ? UI[LANG].e_fields : UI[LANG].e_net;
+  }catch(e){ err.textContent=UI[LANG].e_net; }
+  go.disabled=false;
+});
+window.onerror=window.onunhandledrejection=function(){ if(!err.textContent) err.textContent=UI[LANG].e_net; };
+</script>
+</body>
+</html>

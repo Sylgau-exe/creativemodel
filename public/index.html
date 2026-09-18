@@ -1,0 +1,1229 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Creative Export Engine</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  :root{
+    --ink:#0B1826; --ink-2:#12283C; --ink-3:#1A3A55; --line:#2B4C69;
+    --ivory:#F3EDE2; --muted:#9FB3C4; --dim:#6B8194;
+    --gold:#E3A63B; --gold-2:#F5C96B; --teal:#4FB8AD; --teal-2:#8BD9D0;
+    --display:"Fraunces",Georgia,"Times New Roman",serif;
+    --body:"IBM Plex Sans","Helvetica Neue",Arial,sans-serif;
+    --mono:"IBM Plex Mono",Menlo,Consolas,monospace;
+    --ease:cubic-bezier(.22,.9,.26,1);
+    color-scheme:dark;
+  }
+  html,body{height:100%}
+  body{margin:0;background:var(--ink);color:var(--ivory);font-family:var(--body);font-size:15px;line-height:1.5;overflow:hidden}
+  .app{position:relative;height:100%;display:flex;flex-direction:column;padding-inline:16px;padding-block:0 12px;overflow:hidden}
+  .spot{position:fixed;inset:-20%;pointer-events:none;z-index:0;background:
+    radial-gradient(700px 700px at var(--mx,50%) var(--my,30%), rgba(227,166,59,.14), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(79,184,173,.10), transparent 60%);transition:background-position .2s}
+  header{position:relative;z-index:3;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-block:18px 8px}
+  .brand h1{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.8vw,34px);line-height:1.05;margin:0;letter-spacing:-.01em}
+  .brand p{margin:4px 0 0;color:var(--muted);max-width:64ch;font-size:14px}
+  .brand .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
+  .controls{display:flex;gap:10px;align-items:center}
+  .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;background:var(--ink-2)}
+  .lang button{background:none;border:0;color:var(--muted);font:600 12px/1 var(--body);letter-spacing:.08em;padding:9px 14px;cursor:pointer}
+  .lang button[aria-pressed="true"]{background:var(--gold);color:var(--ink)}
+  button:focus-visible,.node:focus-visible,.tile:focus-visible{outline:2px solid var(--gold-2);outline-offset:2px}
+
+  /* ---------- camera & world ---------- */
+  .viewport{position:relative;flex:1;min-height:0;overflow:hidden;border-radius:18px}
+  .world{position:absolute;left:0;top:0;width:1200px;height:760px;transform-origin:0 0;transition:transform 1.1s var(--ease),filter .6s ease;will-change:transform}
+  .world.away{filter:blur(2px) saturate(.7)}
+  .flows{position:absolute;inset:0;width:1200px;height:760px;overflow:visible}
+  .flow{fill:none;stroke-width:1.7;stroke-linecap:round;transition:opacity .5s}
+  .flow.pub{stroke:var(--gold);stroke-dasharray:6 7}
+  .flow.priv{stroke:var(--teal);stroke-dasharray:6 7}
+  .flow.gov{stroke:rgba(243,237,226,.55);stroke-dasharray:2 7}
+  .flow.anim{animation:dash 14s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-260}}
+  .flabel{font-family:var(--mono);font-size:10.5px;fill:var(--muted)}
+  .flabel.pub{fill:var(--gold-2)} .flabel.priv{fill:var(--teal-2)}
+  .flabel-bg{fill:var(--ink);opacity:.92}
+  .world.away .flow,.world.away .flabel,.world.away .flabel-bg,.world.away .dot{opacity:.25}
+  /* particles */
+  .dot{r:3;opacity:.9;transition:opacity .4s}
+  .dot.pub{fill:var(--gold-2);filter:drop-shadow(0 0 4px rgba(245,201,107,.9))}
+  .dot.priv{fill:var(--teal-2);filter:drop-shadow(0 0 4px rgba(139,217,208,.9))}
+  .dot.gov{fill:var(--ivory);opacity:.7;filter:drop-shadow(0 0 3px rgba(243,237,226,.7))}
+  /* highlight mode: hover or tour */
+  .flows.hl .flow,.flows.hl .flabel,.flows.hl .flabel-bg,.flows.hl .dot{opacity:.12}
+  .flows.hl .flow.lit{opacity:1;stroke-width:2.6}
+  .flows.hl .flabel.lit,.flows.hl .flabel-bg.lit{opacity:1}
+  .flows.hl .dot.lit{opacity:1;r:4.2}
+  .world.tour .node{opacity:.45}
+  .world.tour .node.focus{opacity:1;transform:scale(1.05);border-color:var(--gold-2);box-shadow:0 0 0 1px rgba(245,201,107,.5),0 0 50px rgba(227,166,59,.45),0 24px 60px rgba(0,0,0,.5)}
+  .world.tour .node.focus.private{border-color:var(--teal-2);box-shadow:0 0 0 1px rgba(139,217,208,.5),0 0 50px rgba(79,184,173,.45),0 24px 60px rgba(0,0,0,.5)}
+  /* load choreography */
+  .node.enter{animation:nodeIn .7s var(--ease) both}
+  @keyframes nodeIn{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+  .flows.enter .flow,.flows.enter .flabel,.flows.enter .flabel-bg,.flows.enter .dot{animation:fadeIn 1s ease-out .9s both}
+  .flows.enter .flow.anim{animation:fadeIn 1s ease-out .9s both,dash 14s linear infinite}
+  @keyframes fadeIn{from{opacity:0}}
+
+
+  /* ---------- Q&A ---------- */
+  .qabtn{height:38px}
+  .qabtn.on{border-color:var(--gold);color:var(--gold-2)}
+  .qa{position:absolute;inset:8px;z-index:11;box-sizing:border-box;border-radius:22px;background:linear-gradient(165deg,#1B3D5A,#102539);border:1px solid rgba(227,166,59,.55);
+    box-shadow:0 40px 100px rgba(0,0,0,.6);overflow:hidden;display:flex;flex-direction:column;animation:qaIn .5s var(--ease) both}
+  @keyframes qaIn{from{opacity:0;transform:translateY(24px) scale(.98)}to{opacity:1;transform:none}}
+  .qa[hidden]{display:none}
+  .qainner{display:flex;flex-direction:column;height:100%;min-height:0}
+  .qahead{display:flex;align-items:flex-start;gap:14px;padding:22px 26px 10px}
+  .qahead h2{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.6vw,30px);line-height:1.05;margin:0}
+  .qahead p{margin:6px 0 0;color:var(--muted);font-size:13.5px;max-width:70ch}
+  .qahead .count{font-family:var(--mono);font-size:12px;color:var(--gold-2);margin-top:8px}
+  .qatools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:6px 26px 12px}
+  .qatools input{flex:1 1 240px;min-width:200px;height:36px;border-radius:999px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--ivory);padding:0 14px;font:14px var(--body);outline:none}
+  .qatools input:focus{border-color:var(--gold-2)}
+  .qatools input::placeholder{color:var(--dim)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;padding:0 26px 10px}
+  .chip{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:6px 11px;font:500 12px/1 var(--body);cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+  .chip.gap[aria-pressed="true"]{background:var(--gold-2)}
+  .chip:hover{border-color:var(--gold-2);color:var(--ivory)} .chip[aria-pressed="true"]:hover{color:var(--ink)}
+  .qalist{flex:1;min-height:0;overflow:auto;padding:0 26px 24px;display:flex;flex-direction:column;gap:8px}
+  .qi{flex:none;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.04);overflow:hidden}
+  .qi.open{border-color:rgba(227,166,59,.45);background:rgba(255,255,255,.06)}
+  .qi .qq{width:100%;text-align:left;background:none;border:0;color:var(--ivory);cursor:pointer;padding:13px 16px;display:flex;gap:12px;align-items:flex-start;font:500 15px/1.35 var(--body)}
+  .qi .qq .who{flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-top:3px;width:150px}
+  .qi .qq .txt{flex:1}
+  .qi .qq .badge{flex:none;font:600 10px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;background:var(--gold);color:var(--ink);border-radius:999px;padding:5px 8px;margin-top:2px}
+  .qi .qq .car{flex:none;color:var(--dim);transition:transform .3s;margin-top:2px}
+  .qi.open .qq .car{transform:rotate(90deg);color:var(--gold-2)}
+  .qi .qa-a{display:none;padding:0 16px 16px 178px;color:#DDE5EC;font-size:14.5px;line-height:1.55}
+  .qi.open .qa-a{display:block;animation:capIn .35s var(--ease) both}
+  .qi .qa-a .gapnote{margin-top:10px;border-left:3px solid var(--gold);background:rgba(227,166,59,.1);padding:8px 12px;border-radius:0 10px 10px 0;font-size:13.5px}
+  .qi .qa-a .gapnote b{color:var(--gold-2);font-family:var(--mono);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:3px}
+  .qaempty{color:var(--muted);padding:20px 4px}
+  @media (max-width:760px){ .qa{inset:4px} .qahead,.qatools,.chips,.qalist{padding-inline:14px} .qi .qq .who{display:none} .qi .qa-a{padding-left:16px} .qi .qq{font-size:14px} }
+
+
+  /* ---------- portfolio ---------- */
+  .pfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;padding:0 26px 24px;overflow:auto;flex:1;min-height:0;align-content:start}
+  .pfcard{position:relative;text-align:left;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(255,255,255,.05);padding:16px 16px 14px;color:var(--ivory);cursor:pointer;display:flex;flex-direction:column;gap:6px;transition:transform .3s var(--ease),border-color .3s,background .3s}
+  .pfcard:hover{transform:translateY(-3px);border-color:rgba(227,166,59,.6);background:rgba(255,255,255,.08)}
+  .pfcard .top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .pill{font:600 10px/1 var(--body);letter-spacing:.08em;text-transform:uppercase;border-radius:999px;padding:5px 8px;border:1px solid var(--line);color:var(--muted)}
+  .pill.push{border-color:var(--gold);color:var(--gold-2)} .pill.pull{border-color:var(--teal);color:var(--teal-2)}
+  .pill.draft{background:rgba(227,166,59,.18);border-color:transparent;color:var(--gold-2)}
+  .pill.ok{border-color:var(--teal);color:var(--teal-2)} .pill.no{border-color:var(--dim);color:var(--muted)}
+  .pfcard h3{font-family:var(--display);font-weight:700;font-size:18px;line-height:1.15;margin:2px 0 0;text-wrap:balance}
+  .pfcard .meta{font-size:12.5px;color:var(--muted);line-height:1.4}
+  .pfcard .sig{font-size:13px;color:#DDE5EC;margin-top:2px}
+  .pfcard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px;font-family:var(--mono);font-size:11px;color:var(--gold-2)}
+  .pfcard .foot .stg{color:var(--muted)}
+  .pfstats{display:flex;gap:10px;flex-wrap:wrap;padding:0 26px 14px}
+  .pfstats div{background:rgba(0,0,0,.22);border-radius:12px;padding:10px 14px;min-width:120px}
+  .pfstats b{display:block;font-family:var(--mono);font-weight:500;font-size:20px;color:var(--gold-2)}
+  .pfstats small{color:var(--muted);font-size:11.5px}
+  .sheet{flex:1;min-height:0;overflow:auto;padding:0 26px 26px}
+  .sheet .shead2{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px}
+  .sheet h2{font-family:var(--display);font-weight:700;font-size:clamp(20px,2.4vw,28px);line-height:1.1;margin:6px 0 4px;text-wrap:balance}
+  .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px 16px;margin:10px 0 18px;padding:12px 14px;border-radius:12px;background:rgba(0,0,0,.22)}
+  .facts div{font-size:13px;color:#DDE5EC} .facts b{display:block;font:500 10.5px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-bottom:3px}
+  .pipe{counter-reset:s;list-style:none;padding:0;margin:0 0 16px;display:grid;gap:10px}
+  .pipe li{position:relative;padding:12px 14px 12px 50px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);color:#DDE5EC;font-size:14px;line-height:1.5}
+  .pipe li::before{counter-increment:s;content:counter(s);position:absolute;left:14px;top:13px;width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--ink);font:600 12px/24px var(--mono);text-align:center}
+  .pipe li b{display:block;font-family:var(--display);font-size:15px;color:var(--ivory);margin-bottom:3px}
+  .grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:6px 0 4px}
+  .grid4 div{background:rgba(0,0,0,.22);border-radius:10px;padding:10px 12px}
+  .grid4 small{display:block;color:var(--muted);font-size:11px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+  .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--gold);border-radius:3px}
+  .grid4 b{font-family:var(--mono);font-weight:500;font-size:16px;color:var(--gold-2);display:block;margin-top:6px}
+  .pfnote{border-left:3px solid var(--teal);background:rgba(79,184,173,.08);padding:10px 14px;border-radius:0 10px 10px 0;margin:12px 0;color:#DDE5EC;font-size:14px}
+  .pfnote.gold{border-color:var(--gold);background:rgba(227,166,59,.08)}
+  .pfnote b{display:block;font:500 11px/1.3 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--gold-2);margin-bottom:4px}
+
+
+  .vis{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin:0 0 6px}
+  .vis figure{margin:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden;cursor:zoom-in}
+  .vis img{display:block;width:100%;height:170px;object-fit:cover;background:#fff}
+  .vis figcaption{font-size:12px;color:var(--muted);padding:8px 10px;line-height:1.35}
+  .lightbox{position:fixed;inset:0;z-index:50;background:rgba(5,12,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:zoom-out;padding:24px}
+  .lightbox img{max-width:min(96vw,1100px);max-height:80vh;border-radius:10px;background:#fff}
+  .lightbox p{margin:0;color:var(--ivory);font-size:14px;text-align:center;max-width:70ch}
+  .tc{color:var(--gold-2);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.85}
+  .blk{margin:14px 0 6px}
+  .blk h3{font-family:var(--display);font-weight:700;font-size:17px;margin:0 0 8px;display:flex;align-items:center;gap:10px}
+  .blk h3 .n{width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--ink);font:600 12px/24px var(--mono);text-align:center;flex:none}
+  .blk .facts{margin:0 0 6px}
+  .stages{display:flex;flex-wrap:wrap;gap:4px;margin:12px 0 4px}
+  .stages span{font:500 10.5px/1 var(--mono);letter-spacing:.05em;text-transform:uppercase;padding:6px 9px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .stages span.done{border-color:rgba(227,166,59,.5);color:var(--gold-2)} .stages span.cur{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+  .iptbl td{font-size:12.5px} .iptbl tr.na td{color:var(--dim)}
+  .grid4 .rat{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.35}
+  @media (max-width:760px){ .pfgrid,.pfstats,.sheet{padding-inline:14px} .pipe li{padding-left:44px} }
+
+  /* ---------- guided tour ---------- */
+  .tourbtn{background:var(--gold);border:0;color:var(--ink);height:38px;padding:0 16px;border-radius:999px;cursor:pointer;font:600 13px/1 var(--body);letter-spacing:.02em;display:inline-flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(227,166,59,.3);transition:transform .25s var(--ease),box-shadow .25s}
+  .tourbtn:hover{transform:translateY(-1px);box-shadow:0 12px 30px rgba(227,166,59,.45)}
+  .tourbtn.on{background:rgba(255,255,255,.08);color:var(--ivory);border:1px solid var(--line);box-shadow:none}
+  .tourbtn .ico{font-size:11px}
+  .caption{position:absolute;z-index:12;left:50%;bottom:18px;transform:translateX(-50%) translateY(30px);width:min(680px,calc(100% - 32px));box-sizing:border-box;border-radius:18px;
+    background:linear-gradient(165deg,rgba(27,61,90,.96),rgba(16,37,57,.96));border:1px solid rgba(227,166,59,.5);box-shadow:0 30px 80px rgba(0,0,0,.6);padding:16px 20px 14px;opacity:0;pointer-events:none;transition:opacity .45s ease,transform .6s var(--ease)}
+  .caption.show{opacity:1;transform:translateX(-50%);pointer-events:auto}
+  .caption.private{border-color:rgba(79,184,173,.5)}
+  .caption .ctop{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .caption .step{font-family:var(--mono);font-size:11px;color:var(--gold-2);letter-spacing:.1em}
+  .caption.private .step{color:var(--teal-2)}
+  .caption .dots{display:flex;gap:5px;margin-left:auto}
+  .caption .dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.18);cursor:pointer;transition:background .3s,transform .3s}
+  .caption .dots i.done{background:rgba(245,201,107,.5)}
+  .caption .dots i.cur{background:var(--gold);transform:scale(1.35)}
+  .caption h3{font-family:var(--display);font-weight:700;font-size:clamp(18px,2vw,23px);line-height:1.1;margin:0 0 6px;text-wrap:balance}
+  .caption p{margin:0;color:#DDE5EC;font-size:14.5px;line-height:1.5;min-height:3.2em}
+  .caption .cbar{display:flex;align-items:center;gap:8px;margin-top:12px}
+  .caption .cbar .ibtn{height:34px;padding:0 12px;font-size:12.5px}
+  .caption .cbar .ibtn.primary{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:600}
+  .caption .cbar .ibtn.primary:hover{background:var(--gold-2)}
+  .caption .cbar .explore{margin-left:auto}
+  .caption .prog{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,.06);border-radius:0 0 18px 18px;overflow:hidden}
+  .caption .prog i{display:block;height:100%;width:0;background:var(--gold);transition:width linear}
+  .caption .prog i.run{width:100%}
+  .caption .cbody{animation:capIn .5s var(--ease) both}
+  @keyframes capIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @media (max-width:760px){ .caption{bottom:10px;padding:12px 14px 12px} .caption p{font-size:13.5px;min-height:0} .caption .cbar .ibtn span.lbl{display:none} }
+
+  .node{position:absolute;box-sizing:border-box;padding:14px 16px;border-radius:16px;background:linear-gradient(160deg,rgba(26,58,85,.85),rgba(18,40,60,.85));border:1px solid var(--line);
+    cursor:pointer;transition:transform .35s var(--ease),box-shadow .35s,opacity .5s,border-color .3s;backdrop-filter:blur(6px);display:flex;flex-direction:column;gap:3px}
+  .node.public{border-color:rgba(227,166,59,.65)} .node.private{border-color:rgba(79,184,173,.65)}
+  .node:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 18px 40px rgba(0,0,0,.45);border-color:var(--gold-2)}
+  .node .tag{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .node .t{font-family:var(--display);font-weight:700;font-size:19px;line-height:1.1;color:var(--ivory)}
+  .node .s{font-size:12px;color:var(--muted);line-height:1.3}
+  .node .k{font-family:var(--mono);font-size:11.5px;color:var(--gold-2);margin-top:auto}
+  .node.private .k{color:var(--teal-2)}
+  .node.small{align-items:center;justify-content:center;text-align:center;padding:8px 14px}
+  .node.small .t{font-size:16px} .node.small .s{font-size:11.5px}
+  .world.away .node{opacity:.35;pointer-events:none}
+  .world.away .node.hot{opacity:0}
+
+  /* ---------- stage card (screen space) ---------- */
+  .stage{position:absolute;z-index:10;box-sizing:border-box;border-radius:22px;background:linear-gradient(165deg,#1B3D5A,#102539);border:1px solid rgba(227,166,59,.55);
+    box-shadow:0 40px 100px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.03) inset;overflow:hidden;display:flex;flex-direction:column;
+    transition:left 1.05s var(--ease),top 1.05s var(--ease),width 1.05s var(--ease),height 1.05s var(--ease),opacity .4s,border-radius .8s}
+  .stage[hidden]{display:none}
+  .stage.private{border-color:rgba(79,184,173,.55)}
+  .stage .inner{opacity:0;transition:opacity .45s ease .55s;display:flex;flex-direction:column;height:100%;min-height:0}
+  .stage.open .inner{opacity:1}
+  .shead{display:flex;align-items:flex-start;gap:14px;padding:22px 26px 14px}
+  .shead .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 6px}
+  .shead h2{font-family:var(--display);font-weight:700;font-size:clamp(22px,2.6vw,32px);line-height:1.05;margin:0;text-wrap:balance}
+  .shead .k{font-family:var(--mono);font-size:13px;color:var(--gold-2);margin-top:6px}
+  .stage.private .shead .k{color:var(--teal-2)}
+  .sactions{margin-left:auto;display:flex;gap:8px;flex:none}
+  .ibtn{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--ivory);height:38px;padding:0 14px;border-radius:999px;cursor:pointer;font:500 13px/1 var(--body);display:inline-flex;align-items:center;gap:8px}
+  .ibtn:hover{border-color:var(--gold-2);background:rgba(255,255,255,.1)}
+  .ibtn.round{width:38px;padding:0;justify-content:center;font-size:18px}
+  .sbody{position:relative;flex:1;min-height:0;padding:6px 26px 24px}
+
+  /* facet tiles */
+  .intro{margin:0 0 16px;max-width:70ch;color:#DDE5EC;font-size:15.5px}
+  .tiles{display:grid;gap:14px;align-content:start;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));grid-auto-rows:minmax(160px,210px)}
+  .tile{position:relative;box-sizing:border-box;border-radius:16px;padding:18px 18px 16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);cursor:pointer;text-align:left;color:var(--ivory);
+    display:flex;flex-direction:column;justify-content:flex-end;gap:6px;overflow:hidden;transition:transform .35s var(--ease),background .3s,border-color .3s;opacity:0;transform:translateY(14px);animation:rise .5s var(--ease) forwards}
+  .tile:nth-child(1){animation-delay:.55s}.tile:nth-child(2){animation-delay:.63s}.tile:nth-child(3){animation-delay:.71s}.tile:nth-child(4){animation-delay:.79s}.tile:nth-child(5){animation-delay:.87s}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .tile::before{content:"";position:absolute;inset:0;background:radial-gradient(240px 160px at 90% 0%,rgba(227,166,59,.22),transparent 70%);opacity:0;transition:opacity .3s}
+  .tile:hover{transform:translateY(-4px);border-color:rgba(227,166,59,.6);background:rgba(255,255,255,.08)}
+  .tile:hover::before{opacity:1}
+  .tile .num{position:absolute;top:14px;left:18px;font-family:var(--mono);font-size:12px;color:var(--gold-2);letter-spacing:.1em}
+  .tile .big{font-family:var(--display);font-weight:600;font-size:clamp(18px,1.6vw,24px);line-height:1.1;text-wrap:balance}
+  .tile .hint{font-size:12.5px;color:var(--muted);line-height:1.35}
+  .tile .go{position:absolute;right:16px;bottom:14px;width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--ink);display:grid;place-items:center;font-size:14px;transform:scale(.8);opacity:0;transition:all .3s}
+  .tile:hover .go{opacity:1;transform:none}
+
+  /* detail level */
+  .detail{position:absolute;inset:6px 26px 24px;display:flex;flex-direction:column;min-height:0;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(227,166,59,.35);
+    transform-origin:var(--ox,50%) var(--oy,50%);animation:grow .6s var(--ease) both}
+  @keyframes grow{from{transform:scale(.25);opacity:.2}to{transform:none;opacity:1}}
+  .detail.leaving{animation:shrink .35s var(--ease) both}
+  @keyframes shrink{to{transform:scale(.3);opacity:0}}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 0}
+  .tab{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:7px 12px;font:500 12.5px/1 var(--body);cursor:pointer}
+  .tab[aria-current="true"]{background:var(--gold);color:var(--ink);border-color:var(--gold)}
+  .tab:hover{border-color:var(--gold-2);color:var(--ivory)}
+  .tab[aria-current="true"]:hover{color:var(--ink)}
+  .dcontent{flex:1;min-height:0;overflow:auto;padding:14px 20px 22px}
+  .dcontent h2{font-family:var(--display);font-weight:700;font-size:24px;margin:2px 0 12px;line-height:1.1}
+  .dcontent p{margin:0 0 12px;max-width:66ch;color:#DDE5EC}
+  .dcontent p.lead{font-size:16.5px;color:var(--ivory)}
+  .dcontent ul{margin:0 0 14px;padding-left:18px;color:#DDE5EC}
+  .dcontent li{margin:0 0 7px}
+  .dcontent h3{font-family:var(--display);font-weight:600;font-size:16px;margin:16px 0 8px;color:var(--gold-2)}
+  .stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:6px 0 16px}
+  .stat div{background:rgba(0,0,0,.22);border-radius:12px;padding:12px 14px}
+  .stat b{display:block;font-family:var(--mono);font-weight:500;font-size:20px;color:var(--gold-2)}
+  .stat.priv b{color:var(--teal-2)}
+  .stat small{color:var(--muted);font-size:12px;line-height:1.3;display:block;margin-top:2px}
+  .tbl{width:100%;border-collapse:collapse;font-size:13px;margin:4px 0 16px}
+  .tbl th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:6px 8px 6px 0;border-bottom:1px solid var(--line)}
+  .tbl td{padding:8px 8px 8px 0;border-bottom:1px solid rgba(43,76,105,.5);vertical-align:top;color:#DDE5EC}
+  .tbl td:first-child{color:var(--ivory);font-weight:500}
+  .tbl .num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tblwrap{overflow-x:auto}
+  .note{border-left:3px solid var(--teal);background:rgba(79,184,173,.08);padding:10px 14px;border-radius:0 10px 10px 0;margin:10px 0 16px;color:#DDE5EC}
+  .note.gold{border-color:var(--gold);background:rgba(227,166,59,.08)}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:0 0 16px}
+  .steps li{position:relative;padding-left:38px;margin-bottom:10px;color:#DDE5EC}
+  .steps li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;background:var(--gold);color:var(--ink);font:600 12px/26px var(--mono);text-align:center}
+
+  .foot{position:relative;z-index:3;display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding-top:10px;color:var(--muted);font-size:12.5px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .legend i{display:inline-block;width:24px;height:0;border-top:2px dashed var(--gold)}
+  .legend i.priv{border-color:var(--teal)} .legend i.gov{border-top-style:dotted;border-color:rgba(243,237,226,.7)}
+  .crumbs{display:flex;gap:6px;align-items:center;font-size:12.5px}
+  .crumbs button{background:none;border:0;color:var(--muted);cursor:pointer;font:500 12.5px/1 var(--body);padding:4px 2px}
+  .crumbs button:hover{color:var(--gold-2)}
+  .crumbs .cur{color:var(--ivory)}
+  .crumbs .sep{color:var(--dim)}
+
+  @media (max-width:760px){
+    .brand p{display:none}
+    .shead{padding:16px 16px 10px} .sbody{padding:4px 12px 14px} .detail{inset:4px 12px 14px}
+    .tiles{grid-template-columns:1fr 1fr;grid-auto-rows:minmax(120px,150px)} .intro{font-size:14px}
+    .tile .big{font-size:16px} .tile .hint{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .world,.stage,.tile,.detail,.node{transition:none;animation:none}
+    .tile{opacity:1;transform:none} .flow.anim{animation:none}
+    .node.enter,.flows.enter *,.caption .cbody{animation:none}
+    .caption{transition:none}
+  }
+  .fbform{padding:6px 26px 26px;display:flex;flex-direction:column;gap:14px;max-width:760px}
+  .fbform .lbl{margin:0 0 6px;font-weight:600;color:var(--ivory)}
+  .fbform label{display:block}
+  .fbform textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:12px;color:var(--ivory);font:400 14px/1.5 var(--body);padding:10px 12px;resize:vertical}
+  .fbform textarea:focus{outline:2px solid var(--gold-2);outline-offset:1px}
+  .scale{display:flex;gap:6px;flex-wrap:wrap}
+  .scale .chip{background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--muted);border-radius:999px;padding:8px 12px;cursor:pointer;font:500 13px/1 var(--body)}
+  .scale .chip b{color:var(--gold-2);margin-right:4px}
+  .scale .chip.sel{background:var(--gold);color:var(--ink);border-color:var(--gold)} .scale .chip.sel b{color:var(--ink)}
+  .fbform .row,.prepask .row{display:flex;gap:10px;justify-content:flex-end}
+  .ibtn.gold{background:var(--gold);color:var(--ink);border-color:var(--gold);font-weight:600}
+  .ibtn.gold:hover{background:var(--gold-2)}
+  .err{color:#F0A0A0;margin:0;font-size:13px}
+  .prepask{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;width:min(92vw,380px);background:linear-gradient(165deg,#1B3D5A,#102539);border:1px solid rgba(79,184,173,.6);border-radius:18px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:12px}
+  .prepask[hidden]{display:none}
+  .prepask .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-2);margin:0}
+  .prepask label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+  .prepask input{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;color:var(--ivory);font:500 15px/1 var(--body);padding:10px 12px}
+  .who{font-size:12px;color:var(--dim);margin-left:auto;padding-right:8px}
+  .who[hidden]{display:none}
+</style>
+
+<div class="spot" id="spot"></div>
+<div class="app">
+  <header>
+    <div class="brand">
+      <p class="eyebrow" data-i18n="eyebrow"></p>
+      <h1 data-i18n="title"></h1>
+      <p data-i18n="tagline"></p>
+    </div>
+    <div class="controls">
+      <button class="ibtn qabtn" id="pfbtn" type="button" onclick="togglePF()" hidden><span id="pflbl"></span></button>
+      <button class="ibtn qabtn" id="qabtn" type="button" onclick="toggleQA()"><span id="qalbl"></span></button>
+      <button class="ibtn qabtn fbbtn" id="fbbtn" type="button" onclick="toggleFB()"><span id="fblbl"></span></button>
+      <button class="tourbtn" id="tourbtn" type="button" onclick="toggleTour()"><span class="ico">▶</span><span id="tourlbl"></span></button>
+      <div class="lang" role="group" aria-label="Language">
+        <button id="lang-en" type="button" aria-pressed="true" onclick="setLang('en')">EN</button>
+        <button id="lang-fr" type="button" aria-pressed="false" onclick="setLang('fr')">FR</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="viewport" id="viewport">
+    <div class="world" id="world">
+      <svg class="flows" id="flows" viewBox="0 0 1200 760" aria-hidden="true"></svg>
+      <div id="nodes"></div>
+    </div>
+    <section class="stage" id="stagecard" hidden aria-live="polite">
+      <div class="inner" id="stageinner"></div>
+    </section>
+    <aside class="caption" id="caption" aria-live="polite"></aside>
+    <section class="qa" id="qa" hidden aria-label="Q&A"><div class="qainner" id="qainner"></div></section>
+    <section class="qa pf" id="pf" hidden aria-label="Portfolio"><div class="qainner" id="pfinner"></div></section>
+    <section class="qa fb" id="fb" hidden aria-label="Feedback"><div class="qainner" id="fbinner"></div></section>
+    <form class="prepask" id="prepask" hidden onsubmit="submitPrep(event)" autocomplete="off">
+      <p class="tag">Prep mode · Mode préparation</p>
+      <label>Admin password / Mot de passe admin<input type="password" name="password" required></label>
+      <p class="err" hidden>Wrong password · Mot de passe incorrect</p>
+      <div class="row"><button type="button" class="ibtn" onclick="document.getElementById('prepask').hidden=true">Cancel · Annuler</button><button type="submit" class="ibtn gold">Unlock · Déverrouiller</button></div>
+    </form>
+  </div>
+
+  <div class="foot">
+    <div class="crumbs" id="crumbs"></div>
+    <span class="who" id="who" hidden></span>
+    <div class="legend">
+      <span><i></i><span data-i18n="leg_pub"></span></span>
+      <span><i class="priv"></i><span data-i18n="leg_priv"></span></span>
+      <span><i class="gov"></i><span data-i18n="leg_gov"></span></span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------- i18n ----------
+const UI = {
+  en:{eyebrow:"An export engine for Canadian creative content", title:"Creative Export Engine", tagline:"The government insures. Private capital invests. The reserve grows on its own premiums. Click any part of the model to fly into it.",
+      leg_pub:"Public insurance & premiums", leg_priv:"Private money", leg_gov:"Projects & governance", home:"The model", back:"Back", close:"Close", open:"Open", esc:"Esc",
+      tour:"Guided tour", tour_exit:"Exit tour", qa:"Q&A", qa_title:"Questions & answers", qa_sub:"The questions a reviewer is likely to ask about each component of the model, answered as the documents state them.", qa_search:"Search questions and answers…", qa_all:"All", qa_gaps:"Open points", qa_todecide:"To decide", qa_n:"questions", qa_none:"No question matches.", qa_bycomp:"By component", qa_bywho:"By stakeholder", qa_prep:"Prep mode", pf:"Portfolio", pf_title:"Opportunity portfolio", pf_sub:"Private draft — opportunities Sylvain has worked on, written as opportunity sheets on the six-step pipeline. Each sheet is a rehearsal answer to “what kind of projects?”", pf_draft:"Draft — to confirm", pf_missing:"fields to capture", pf_all:"All", pf_eligible:"Eligible", pf_notelig:"Export Advance only", pf_steps:["Opportunity","Qualification","Quantification","Summary","Scoring","Decision"], pf_grid:["Export","Viability","IP","Capacity"], pf_engine:"What the engine changes", pf_visuals:"Drawings & renders", pf_tc:"to capture", pf_blocks:["Origin","Customer","Canadian company","The project","Where is the IP","Money","Assessment"], pf_conf:{draft:"Draft",confirmed:"Confirmed by Sylvain",validated:"Validated by a Sage"}, pf_ipcols:["Layer","Asset","Owner today","Owner after contract","Protectable","Registered","Territory"], pf_ipf:{target:"Target case on the spectrum",moment:"The IP moment",right:"Recurring Canadian right that must survive",reuse:"Reuse — what it becomes as catalogue"}, pf_of:{date:"Signal date",how:"How it arrived",office:"Office · producer",sage:"Sage validation"}, pf_cf:{name:"Customer",type:"Type",decider:"Decision-maker",budget:"Budget",deadline:"Deadline / driver",procurement:"Procurement",relationship:"Relationship",competition:"Competition"}, pf_cof:{name:"Company",size:"Size",exports:"Prior exports",ipheld:"IP already held",capacity:"Capacity"}, pf_pf:{deliverable:"Deliverable",format:"Format",size:"Size",revenue:"Revenue lines",models:"Business-model options",risks:"Risks"}, pf_mf:{advance:"Export Advance",capital:"Protected capital",tier:"Risk tier · cover",stack:"Rest of the stack",premium:"Premium",waterfall:"Waterfall position",standard:"Recoupment Standard"}, pf_af:{verdict:"Eligibility",decision:"Decision",next:"Next action",owner:"Owner",date:"Date"}, pf_lessons:"Lessons", pf_back:"All opportunities", pf_n:"opportunities", pf_restructured:"Restructured version of", pf_original:"Original", pf_fields:{year:"Period",mode:"Mode",sector:"Sector",market:"Market",customer:"Customer",signal:"Signal",stage:"Stage reached",value:"Size",ipcase:"IP case"}, qa_prep_on:"Prep mode — private view: stakeholder lens and open points", fb:"Your thoughts", fb_title:"Your thoughts on the model", fb_sub:"This is a working model shared for opinions. Tell us what convinces you, what does not, and what is missing.", fb_rate:"Overall, does the model hold together?", fb_scale:["Not at all","Weak","Mixed","Mostly","Yes, clearly"], fb_q1:"What is the strongest part of the model?", fb_q2:"What is the weakest part, or what would you challenge?", fb_q3:"Anything missing, unclear, or that you would add?", fb_send:"Send", fb_sent:"Thank you — your comments are recorded.", fb_more:"Send another comment", fb_err:"Could not send. Please try again.", step:"Step", of:"of", prev:"Previous", next:"Next", pause:"Pause", play:"Play", explore:"Explore this component", finish:"Finish"},
+  fr:{eyebrow:"Un moteur d'exportation pour le contenu créatif canadien", title:"Moteur d'exportation créatif", tagline:"Le gouvernement assure. Le privé investit. La réserve croît au fil des primes. Cliquez sur une composante du modèle pour y plonger.",
+      leg_pub:"Assurance publique et primes", leg_priv:"Argent privé", leg_gov:"Projets et gouvernance", home:"Le modèle", back:"Retour", close:"Fermer", open:"Ouvrir", esc:"Échap",
+      tour:"Visite guidée", tour_exit:"Quitter la visite", qa:"Q&R", qa_title:"Questions et réponses", qa_sub:"Les questions qu'un lecteur est susceptible de poser sur chaque composante du modèle, avec les réponses telles que les documents les énoncent.", qa_search:"Chercher dans les questions et réponses…", qa_all:"Toutes", qa_gaps:"Points ouverts", qa_todecide:"À trancher", qa_n:"questions", qa_none:"Aucune question ne correspond.", qa_bycomp:"Par composante", qa_bywho:"Par partie prenante", qa_prep:"Mode préparation", pf:"Portefeuille", pf_title:"Portefeuille d'occasions", pf_sub:"Brouillon privé — occasions sur lesquelles Sylvain a travaillé, rédigées en fiches selon le pipeline en six étapes. Chaque fiche est une réponse répétée à « quel genre de projets? »", pf_draft:"Brouillon — à confirmer", pf_missing:"champs à saisir", pf_all:"Toutes", pf_eligible:"Admissible", pf_notelig:"Avance Export seulement", pf_steps:["Occasion","Qualification","Quantification","Sommaire","Scoring","Décision"], pf_grid:["Export","Viabilité","PI","Capacité"], pf_engine:"Ce que le moteur change", pf_visuals:"Dessins et rendus", pf_tc:"à saisir", pf_blocks:["Origine","Client","Entreprise canadienne","Le projet","Où est la PI","Argent","Évaluation"], pf_conf:{draft:"Brouillon",confirmed:"Confirmé par Sylvain",validated:"Validé par un Sage"}, pf_ipcols:["Couche","Actif","Propriétaire aujourd'hui","Propriétaire après contrat","Protégeable","Enregistré","Territoire"], pf_ipf:{target:"Cas visé sur le spectre",moment:"Le moment PI",right:"Droit canadien récurrent qui doit survivre",reuse:"Réutilisation — ce que ça devient en catalogue"}, pf_of:{date:"Date du signal",how:"Comment il est arrivé",office:"Bureau · producteur",sage:"Validation du Sage"}, pf_cf:{name:"Client",type:"Type",decider:"Décideur",budget:"Budget",deadline:"Échéance / moteur",procurement:"Mode d'achat",relationship:"Relation",competition:"Concurrence"}, pf_cof:{name:"Entreprise",size:"Taille",exports:"Exportations antérieures",ipheld:"PI déjà détenue",capacity:"Capacité"}, pf_pf:{deliverable:"Livrable",format:"Format",size:"Taille",revenue:"Sources de revenus",models:"Options de modèle d'affaires",risks:"Risques"}, pf_mf:{advance:"Avance Export",capital:"Capital protégé",tier:"Palier · couverture",stack:"Reste du montage",premium:"Prime",waterfall:"Position dans la cascade",standard:"Standard de recoupment"}, pf_af:{verdict:"Admissibilité",decision:"Décision",next:"Prochaine action",owner:"Responsable",date:"Date"}, pf_lessons:"Leçons", pf_back:"Toutes les occasions", pf_n:"occasions", pf_restructured:"Version restructurée de", pf_original:"Original", pf_fields:{year:"Période",mode:"Mode",sector:"Secteur",market:"Marché",customer:"Client",signal:"Signal",stage:"Étape atteinte",value:"Taille",ipcase:"Cas PI"}, qa_prep_on:"Mode préparation — vue privée : lecture par partie prenante et points ouverts", fb:"Votre avis", fb_title:"Votre avis sur le modèle", fb_sub:"Ce modèle de travail est partagé pour recueillir des opinions. Dites-nous ce qui vous convainc, ce qui ne tient pas, et ce qui manque.", fb_rate:"Dans l\u2019ensemble, le modèle tient-il la route?", fb_scale:["Pas du tout","Faible","Mitigé","En grande partie","Oui, clairement"], fb_q1:"Quelle est la partie la plus solide du modèle?", fb_q2:"Quelle est la partie la plus faible, ou que remettriez-vous en question?", fb_q3:"Quelque chose de manquant, de flou, ou que vous ajouteriez?", fb_send:"Envoyer", fb_sent:"Merci — vos commentaires sont enregistrés.", fb_more:"Envoyer un autre commentaire", fb_err:"Envoi impossible. Veuillez réessayer.", step:"Étape", of:"de", prev:"Précédent", next:"Suivant", pause:"Pause", play:"Lecture", explore:"Explorer cette composante", finish:"Terminer"}
+};
+
+// ---------- guided tour script (the money flow, in order) ----------
+const TOUR = [
+ {node:"policy", flows:[], h:{en:"Start with what already exists",fr:"Partir de ce qui existe déjà"},
+  p:{en:"The June 3, 2026 commitment stabilizes production at home. Capacity is not Canada's problem — converting it into export revenue and Canadian-held IP is. The engine is a layer on top, never a replacement.",
+     fr:"L'engagement du 3 juin 2026 stabilise la production au pays. La capacité n'est pas le problème du Canada — la convertir en revenus d'exportation et en PI canadienne, oui. Le moteur est une couche ajoutée, jamais un remplacement."}},
+ {node:"reserve", flows:["policy>reserve"], h:{en:"One seed. The state becomes an insurer.",fr:"Une seule mise. L'État devient assureur."},
+  p:{en:"A one-time $50M reserve — an actuarial provision that stays in the treasury. The government never invests in projects; it partially protects the private capital that does.",
+     fr:"Une réserve unique de 50 M$ — une provision actuarielle qui reste dans les coffres. Le gouvernement n'investit jamais dans les projets; il protège partiellement le capital privé qui le fait."}},
+ {node:"investors", flows:["investors>fund"], h:{en:"Private money steps in",fr:"L'argent privé entre en jeu"},
+  p:{en:"Pension funds, institutions and family offices commit $250M+ a year. They want exposure to sectors growing 12–25% a year, but not unprotected production risk. This capital adds nothing to public spending.",
+     fr:"Caisses de retraite, institutions et family offices engagent 250 M$+ par année. Ils veulent une exposition à des secteurs en croissance de 12 à 25 %, sans porter un risque de production non protégé. Ce capital n'ajoute rien aux dépenses publiques."}},
+ {node:"fund", flows:["reserve>fund"], h:{en:"A fund whose capital is protected",fr:"Un fonds à capital protégé"},
+  p:{en:"A professional manager, chosen by public RFP, with 2–5% of their own money in. The reserve protects 60 to 100% of the capital depending on each project's risk tier. That protection is what pulls institutional money into the sector.",
+     fr:"Un gestionnaire professionnel, choisi par appel d'offres, qui engage 2 à 5 % de son propre argent. La réserve protège de 60 à 100 % du capital selon le palier de risque de chaque projet. C'est cette protection qui attire l'argent institutionnel."}},
+ {node:"sages", flows:["sages>fund","sages>office"], h:{en:"Validated by people who have signed the contracts",fr:"Validé par ceux qui ont signé les contrats"},
+  p:{en:"Seven to nine veterans of the international creative industries validate opportunities through their networks in 48 hours instead of 3 months. They validate; they never allocate. Arm's length from politics.",
+     fr:"Sept à neuf vétérans des industries créatives internationales valident les occasions par leur réseau en 48 h au lieu de 3 mois. Ils valident; ils n'allouent jamais. À distance du politique."}},
+ {node:"office", flows:["office>customers","office>producers"], h:{en:"Producers in the market, not administrators",fr:"Des producteurs sur le terrain, pas des administrateurs"},
+  p:{en:"40–50 experienced producers in LA, Paris/London, the Gulf and Asia find and qualify 80–120 opportunities a year, then put the Canadian company in the room. An Export Advance of $25K–150K covers the concept, the trips and the negotiation.",
+     fr:"De 40 à 50 producteurs d'expérience à LA, Paris/Londres, dans le Golfe et en Asie trouvent et qualifient de 80 à 120 occasions par année, puis mettent l'entreprise canadienne en contact. Une Avance Export de 25 à 150 K$ couvre le concept, les voyages et la négociation."}},
+ {node:"producers", flows:["fund>producers"], h:{en:"Canadian SMEs, on one condition",fr:"Des PME canadiennes, à une condition"},
+  p:{en:"Film and TV co-production, games, touring shows, immersive, event technology. Protected financing flows to them at three speeds, and they carry almost no risk at any of them. The condition: the IP — or a lasting right to its revenues — stays in Canada. Pure buy-out work gets the Export Advance only.",
+     fr:"Coproduction ciné/télé, jeux, tournées, immersif, techno événementielle. Le financement protégé leur parvient à trois vitesses, et elles ne portent presque aucun risque. La condition : la PI — ou un droit durable sur ses revenus — reste au Canada. Le rachat complet n'a droit qu'à l'Avance Export."}},
+ {node:"customers", flows:["producers>customers"], h:{en:"Sold to the world",fr:"Vendu au monde"},
+  p:{en:"Distributors, platforms, venues, giga-project developers, publishers and public broadcasters buy Canadian creative content — as partnerships, turnkey productions, licences or royalties. Revenues flow back to Canada.",
+     fr:"Distributeurs, plateformes, salles, promoteurs de gigaprojets, éditeurs et diffuseurs publics achètent du contenu créatif canadien — en partenariat, clé en main, licence ou royautés. Les revenus reviennent au Canada."}},
+ {node:"standard", flows:["producers>standard","producers>customers"], h:{en:"No Hollywood accounting",fr:"Pas de comptabilité hollywoodienne"},
+  p:{en:"Every contract carries the ten clauses of the Recoupment Standard: strict gross receipts, capped fees, full audit rights, no cross-collateralization. The asymmetry each SME faces alone becomes a collective Canadian floor — and the reserve's risk drops.",
+     fr:"Chaque contrat porte les dix clauses du Standard de recoupment : recettes brutes strictes, frais plafonnés, droits d'audit complets, pas de cross-collateralization. L'asymétrie que chaque PME affronte seule devient un plancher canadien collectif — et le risque de la réserve baisse."}},
+ {node:"fund", flows:["fund>reserve","fund>investors"], h:{en:"The engine pays for itself",fr:"Le moteur s'autofinance"},
+  p:{en:"Each project pays a 3–12% premium. About 60% funds the investors' insured yield; about 40% is ceded to the sovereign reserve. Investors get capital, yield and upside; the reserve grows with no new public contribution.",
+     fr:"Chaque projet verse une prime de 3 à 12 %. Environ 60 % financent le rendement assuré des investisseurs; environ 40 % sont cédés à la réserve souveraine. Les investisseurs reçoivent capital, rendement et plus-value; la réserve croît sans nouvel apport public."}},
+ {node:"outcomes", flows:[], h:{en:"Five years later",fr:"Cinq ans plus tard"},
+  p:{en:"$800M of private capital deployed. Creative exports up 57%. Canadian-held IP from 30 to 45%. The $50M reserve at ~$69M, net cost trending to zero. That is the provincial-scale proof of concept — scaled federally, the figures grow with it.",
+     fr:"800 M$ de capital privé déployés. Exportations créatives en hausse de 57 %. PI canadienne de 30 à 45 %. La réserve de 50 M$ à ~69 M$, coût net tendant vers zéro. C'est la preuve de concept à l'échelle provinciale — à l'échelle fédérale, les chiffres grandissent avec elle."}}
+];
+const TOUR_STEP_MS = 11000;
+let LANG = "en";
+try { const s = localStorage.getItem("cee-lang"); if (s === "fr" || s === "en") LANG = s; } catch(e){}
+const T = (o) => (o && typeof o === "object" && ("en" in o)) ? (o[LANG] ?? o.en) : o;
+
+// ---------- content model ----------
+// block helpers
+const P = (en,fr,lead)=>({t:"p",en,fr,lead});
+const H = (en,fr)=>({t:"h",en,fr});
+const UL = (items)=>({t:"ul",items});
+const STEPS = (items)=>({t:"steps",items});
+const STAT = (items,priv)=>({t:"stat",items,priv});
+const TBL = (head,rows)=>({t:"tbl",head,rows});
+const NOTE = (en,fr,gold)=>({t:"note",en,fr,gold});
+const B = (en,fr)=>({en,fr});
+
+const NODES = [
+ { id:"policy", kind:"public", x:40,y:22,w:250,h:110,
+   tag:B("Policy context","Contexte politique"), t:B("June 3, 2026 commitment","Engagement du 3 juin 2026"), s:B("existing federal support","soutien fédéral existant"), k:B("the policy this complements","la politique que ceci complète"),
+   facets:[
+    {id:"what", n:B("What it does","Ce qu'il fait"), body:[
+      P("The June 3, 2026 commitment stabilizes Canadian creative production at home. It is a necessary defensive measure and this engine does not compete with it.","L'engagement du 3 juin 2026 stabilise la production créative canadienne au pays. C'est une mesure défensive nécessaire, et ce moteur n'entre pas en concurrence avec elle.",true),
+      P("Canada's creative industries are already well supported on the production side, mainly through tax credits. Capacity is not the problem.","Les industries créatives canadiennes sont déjà bien soutenues du côté de la production, surtout par les crédits d'impôt. La capacité n'est pas le problème.")]},
+    {id:"gap", n:B("What it doesn't include","Ce qu'il ne couvre pas"), body:[
+      P("No federal instrument converts production capacity into export revenue and Canadian-held intellectual property. Canada functions as a talent and service factory; the franchises, catalogues and export margins accrue abroad.","Aucun instrument fédéral ne convertit la capacité de production en revenus d'exportation et en propriété intellectuelle canadienne. Le Canada fonctionne comme une usine à talent et à services; les franchises, catalogues et marges d'exportation s'accumulent à l'étranger.",true),
+      UL([B("12 to 18 months from first contact to a signed international contract — time kills deals.","De 12 à 18 mois entre le premier contact et un contrat international signé — le temps tue les affaires."),
+          B("Unqualified leads cost small studios up to $100,000 each with nothing to show for it.","Une occasion non qualifiée peut coûter jusqu'à 100 000 $ à un petit studio, sans résultat."),
+          B("Production financing exists; capital to develop and hold a franchise does not.","Le financement de production existe; le capital pour développer et détenir une franchise, non.")])]},
+    {id:"fit", n:B("How the engine fits","Comment le moteur s'y insère"), body:[
+      P("A layer on top of what exists, not a replacement. Existing cultural programs and tax credits stay exactly as they are; the engine separates commercial creative export from cultural subsidy.","Une couche ajoutée à ce qui existe, pas un remplacement. Les programmes culturels et les crédits d'impôt restent intacts; le moteur sépare l'exportation créative commerciale de la subvention culturelle.",true),
+      UL([B("Modest, optimizable public cost — how to fund it is the government's decision.","Coût public modeste et optimisable — le mode de financement relève du gouvernement."),
+          B("Growth and trade diversification in a sector where Canada holds a demonstrated comparative advantage.","Croissance et diversification commerciale dans un secteur où le Canada détient un avantage comparatif démontré."),
+          B("Cultural sovereignty through ownership: Canadian stories owned by Canadian companies.","Souveraineté culturelle par la propriété : des histoires canadiennes détenues par des entreprises canadiennes.")])]}
+   ]},
+ { id:"sages", kind:"gov", x:470,y:22,w:260,h:104,
+   tag:B("Governance","Gouvernance"), t:B("Conseil des Sages","Comité des Sages"), s:B("7–9 senior industry figures","7 à 9 vétérans de l'industrie"), k:B("arm's length from politics","à distance du politique"),
+   facets:[
+    {id:"mandate", n:B("Mandate","Mandat"), body:[
+      P("Seven to nine veterans of the international creative industries — not bureaucrats, not academics: people who have signed contracts, delivered projects and built international networks over 20 to 30 years.","Sept à neuf vétérans des industries créatives internationales — ni bureaucrates, ni universitaires : des gens qui ont signé des contrats, livré des projets et bâti des réseaux internationaux sur 20 à 30 ans.",true),
+      UL([B("Validate opportunities through their network in 48 hours instead of 3 months.","Valider les occasions par leur réseau en 48 h au lieu de 3 mois."),
+          B("Qualify sources (embassies, trade missions, producers).","Qualifier les sources (ambassades, missions, producteurs)."),
+          B("Steer business models: partnership, turnkey, royalties, licence.","Orienter les modèles d'affaires : partenariat, clé en main, royautés, licence."),
+          B("Feed the pipeline proactively.","Alimenter le pipeline de façon proactive."),
+          B("Find the IP: for every opportunity, identify where the durable, protectable asset is — patent, design, copyright, trademark, know-how — and which of it stays in Canada.","Trouver la PI : pour chaque occasion, repérer où se trouve l'actif durable et protégeable — brevet, dessin industriel, droit d'auteur, marque, savoir-faire — et lequel reste au Canada.")]),
+      NOTE("The Conseil validates; it does not allocate. Capital allocation stays with a professional fund manager who has skin in the game.","Le Comité valide; il n'alloue pas. L'allocation du capital reste au gestionnaire de fonds professionnel, qui engage son propre argent.",true)]},
+    {id:"profiles", n:B("Five profiles","Cinq profils"), body:[
+      P("Profile types, with the markets and value each brings.","Profils types, avec les marchés et la valeur que chacun apporte."),
+      TBL([B("Profile","Profil"),B("Markets","Marchés"),B("Value","Valeur")],[
+        [B("Circus / live-show veteran","Vétéran cirque / spectacles"),B("Vegas, Macau, Middle East, China, 30+ countries","Vegas, Macao, Moyen-Orient, Chine, 30+ pays"),B("Promoter network, international venue owners","Réseau de promoteurs, propriétaires de salles")],
+        [B("Film & TV co-production","Coproduction cinéma / télé"),B("France, UK, USA, Germany; Sundance, Cannes; ARTE, BBC, NHK, PBS","France, R.-U., É.-U., Allemagne; Sundance, Cannes; ARTE, BBC, NHK, PBS"),B("Multi-source financing, festival distribution, broadcaster relations","Financement multi-sources, distribution en festival, relations diffuseurs")],
+        [B("International executive producer","Producteur exécutif international"),B("China, Southeast Asia, Middle East","Chine, Asie du Sud-Est, Moyen-Orient"),B("Complex contract negotiation, co-ventures, IP","Négociation de contrats complexes, coentreprises, PI")],
+        [B("Video-game veteran","Vétéran du jeu vidéo"),B("North America, Europe, Asia","Amérique du Nord, Europe, Asie"),B("Publishers, financing cycles, IP models","Éditeurs, cycles de financement, modèles de PI")],
+        [B("Event-technology veteran","Vétéran de la technologie événementielle"),B("Global — LA, London, Riyadh, Singapore","Mondial — LA, Londres, Riyad, Singapour"),B("Decision-makers on entertainment mega-projects","Décideurs de mégaprojets de divertissement")]])]},
+    {id:"findip", n:B("Finding the IP","Trouver la PI"), body:[
+      P("A producer sees a project. A Sage who has signed licensing deals sees the rights inside it — and the engine finances only the rights that stay in Canada.","Un producteur voit un projet. Un Sage qui a signé des ententes de licence voit les droits qu'il contient — et le moteur ne finance que les droits qui restent au Canada.",true),
+      P("Part of the Conseil's mandate is to map each qualified opportunity layer by layer: what can be patented, what is a design, what is copyright, what is a brand, what is know-how — and to steer the contract so those layers are separated, kept or licensed rather than swept into a buy-out.","Une partie du mandat du Comité est de cartographier chaque occasion qualifiée couche par couche : ce qui se brevète, ce qui est un dessin industriel, ce qui est du droit d'auteur, ce qui est une marque, ce qui est du savoir-faire — et d'orienter le contrat pour que ces couches soient séparées, conservées ou concédées sous licence plutôt qu'emportées dans un rachat."),
+      TBL([B("Layer","Couche"),B("Protects","Protège"),B("Example — a giant-puppet parade","Exemple — une parade de marionnettes géantes")],[
+        [B("Patent","Brevet"),B("A mechanism or process that is new and useful","Un mécanisme ou procédé nouveau et utile"),B("The mobile unit, the support structure, the one-operator automation","L'unité mobile, la structure de support, l'automatisation à un opérateur")],
+        [B("Industrial design","Dessin industriel"),B("The visual shape of a product","La forme visuelle d'un produit"),B("The look of the unit and of the standard mannequin","L'allure de l'unité et du mannequin standard")],
+        [B("Copyright","Droit d'auteur"),B("Original creative works","Les œuvres originales"),B("Each themed dressing — skin, mask, costume — the characters, the parade's story and music","Chaque habillage thématique — peau, masque, costume — les personnages, le récit et la musique de la parade")],
+        [B("Trademark","Marque"),B("Names and signs that identify the source","Les noms et signes qui identifient la source"),B("The parade name, the character names, the show brand","Le nom de la parade, les noms des personnages, la marque du spectacle")],
+        [B("Trade secret / know-how","Secret commercial / savoir-faire"),B("Processes kept confidential","Les procédés gardés confidentiels"),B("Show control, set-up and safety procedures, cost model","Le contrôle du spectacle, les procédures de montage et de sécurité, le modèle de coûts")],
+        [B("Format / contract rights","Format / droits contractuels"),B("Rights defined by the contract itself","Les droits définis par le contrat"),B("Territory, window, per-unit royalty, brand editions","Territoire, fenêtre, royauté par unité, éditions de marque")]]),
+      NOTE("The same map applies to a show (the format, the characters, the music, the staging technology), a game (engine, characters, world) or a series (format, chain of title). The Sage's question is always the same: which layer can a Canadian company keep, and what is it worth on its own?","La même carte s'applique à un spectacle (le format, les personnages, la musique, la technologie de scène), à un jeu (moteur, personnages, univers) ou à une série (format, chaîne de titres). La question du Sage est toujours la même : quelle couche une entreprise canadienne peut-elle garder, et que vaut-elle seule?",true)]},
+    {id:"gov", n:B("Why arm's length","Pourquoi à distance"), body:[
+      P("Selection is made on commercial and cultural merit, insulated from political discretion. The Conseil protects public credibility as much as returns.","La sélection se fait sur le mérite commercial et culturel, à l'abri de la discrétion politique. Le Comité protège la crédibilité publique autant que les rendements.",true),
+      P("Three roles, deliberately separated so that no single actor both picks projects and holds the public's money: the market chooses, the fund manager puts capital at risk, the Conseil validates.","Trois rôles volontairement séparés pour qu'aucun acteur ne choisisse les projets et ne détienne l'argent public à la fois : le marché choisit, le gestionnaire engage le capital, le Comité valide.")]}
+   ]},
+ { id:"outcomes", kind:"public", x:900,y:22,w:270,h:110,
+   tag:B("Five-year benefits","Bénéfices sur cinq ans"), t:B("What five years look like","Cinq ans plus tard"), s:B("provincial-scale proof of concept","preuve de concept à l'échelle provinciale"), k:B("exports 3.5 → 5.5 G$","exportations 3,5 → 5,5 G$"),
+   facets:[
+    {id:"targets", n:B("Targets","Cibles"), body:[
+      P("Illustrative targets of the provincial-scale model. Scaled federally, across all provinces and the full breadth of creative content, the figures would be commensurately larger.","Cibles illustratives du modèle à l'échelle provinciale. À l'échelle fédérale, toutes provinces et toute la largeur du contenu créatif confondues, les chiffres seraient d'autant plus grands."),
+      STAT([{v:"3.5 → 5.5 G$",l:B("creative exports, +57%","exportations créatives, +57 %")},{v:"$800M",l:B("private capital deployed over 5 years","capital privé déployé sur 5 ans")},{v:"+40%",l:B("jobs, higher value-added","emplois, à plus forte valeur ajoutée")},{v:"30 → 45%",l:B("IP held by Canadian companies","PI détenue par des entreprises canadiennes")},{v:"$50M → ~$69M",l:B("reserve, self-financed","réserve, autofinancée")},{v:"→ $0",l:B("net cost of the reserve","coût net de la réserve")}])]},
+    {id:"proof", n:B("Canadian proof","Preuves canadiennes"), body:[
+      P("Canada's biggest creative export successes share one trait: a Canadian company kept the intellectual property.","Les plus grands succès d'exportation créative du Canada ont un point commun : une entreprise canadienne a conservé la propriété intellectuelle.",true),
+      UL([B("PAW Patrol (Spin Master, Toronto): $15B+ in retail sales worldwide, 170+ countries, ~100,000 licensed products.","PAW Patrol (Spin Master, Toronto) : plus de 15 G$ de ventes au détail dans le monde, 170+ pays, ~100 000 produits sous licence."),
+          B("Dead by Daylight (Behaviour, Montreal): 70M players; owning the IP took a 300–350-person work-for-hire studio to 1,260 employees.","Dead by Daylight (Behaviour, Montréal) : 70 M de joueurs; la propriété de la PI a fait passer un studio de services de 300–350 personnes à 1 260 employés."),
+          B("Cirque du Soleil (Montreal): 100M+ spectators in 300+ cities; every show is Cirque-owned IP.","Cirque du Soleil (Montréal) : plus de 100 M de spectateurs dans 300+ villes; chaque spectacle est une PI du Cirque.")]),
+      NOTE("The counter-example: Quebec VFX and animation — world-class talent under service contracts on foreign-owned IP — went from 8,037 jobs in 2022 to 2,603 in 2024 when the work moved.","Le contre-exemple : les VFX et l'animation au Québec — un talent de classe mondiale sous contrats de services sur des PI étrangères — sont passés de 8 037 emplois en 2022 à 2 603 en 2024 quand le travail est parti.")]}
+   ]},
+ { id:"reserve", kind:"public", x:40,y:250,w:270,h:140,
+   tag:B("Insurer","Assureur"), t:B("Sovereign insurance","Assurance souveraine"), s:B("capital-protection reserve","réserve de protection du capital"), k:B("$50M one-time seed → ~$69M","50 M$ une fois → ~69 M$"),
+   facets:[
+    {id:"how", n:B("How it works","Fonctionnement"), body:[
+      P("The state never invests in projects. It partially protects private investors in qualified projects, and the premiums those investors pay grow the reserve. Sovereign reinsurance, not a grant.","L'État n'investit jamais dans les projets. Il protège partiellement les investisseurs privés dans des projets qualifiés, et les primes payées par ces investisseurs font croître la réserve. Une réassurance souveraine, pas une subvention.",true),
+      STEPS([B("The producer's project pays the fund a premium according to its risk profile — 3 to 12% of capital deployed.","Le projet du producteur verse au fonds une prime selon son profil de risque — 3 à 12 % du capital déployé."),
+             B("The fund splits the premium: roughly 60% feeds the investors' insured yield, roughly 40% is ceded to the sovereign reserve.","Le fonds répartit la prime : environ 60 % vers le rendement assuré des investisseurs, environ 40 % cédés à la réserve souveraine."),
+             B("The investor earns an insured yield plus project upside.","L'investisseur obtient un rendement assuré plus la plus-value des projets."),
+             B("The government remains the insurer, with a reserve that finances itself on premiums instead of freezing $50M indefinitely.","Le gouvernement demeure l'assureur, avec une réserve qui s'autofinance par les primes au lieu de figer 50 M$ indéfiniment."),
+             B("As the reserve grows, insurance capacity grows — with no new public contribution.","À mesure que la réserve croît, la capacité d'assurance croît — sans nouvel apport public.")]),
+      NOTE("R&D tax credits are not a source of the fund. They stay entirely with producers and are deducted from the capital request before scoring.","Les crédits d'impôt R&D ne sont pas une source du fonds. Ils restent intégralement aux producteurs et sont déduits de la demande de capital avant le scoring.")]},
+    {id:"tiers", n:B("Risk tiers","Paliers de risque"), body:[
+      P("Protection is risk-adjusted, never a blanket guarantee. Terminology: \"protected capital — risk-adjusted level\", aligned with the UK Growth Guarantee Scheme and the US Treasury AGP.","La protection est ajustée au risque, jamais une garantie générale. Terminologie : « capital protégé — niveau ajusté au risque », alignée sur le UK Growth Guarantee Scheme et l'AGP du Trésor américain."),
+      TBL([B("Risk","Risque"),B("Premium","Prime"),B("Capital protected","Capital protégé"),B("Examples","Exemples")],[
+        [B("Low","Faible"),{num:"3–5%"},{num:"100%"},B("Expansion of a proven immersive series; pre-sold TV series","Expansion d'une série immersive éprouvée; série télé prévendue")],
+        [B("Medium","Moyen"),{num:"5–8%"},{num:"80%"},B("AA game; circus tour","Jeu AA; tournée de cirque")],
+        [B("Higher","Élevé"),{num:"8–12%"},{num:"60%"},B("First game; innovative VR","Premier jeu; RV innovante")]]),
+      STAT([{v:"~88%",l:B("weighted average cover on a balanced portfolio","couverture moyenne pondérée d'un portefeuille équilibré")}])]},
+    {id:"traj", n:B("Five-year trajectory","Trajectoire sur cinq ans"), body:[
+      P("Proof-of-concept model built on a $50M initial reserve.","Modèle de preuve de concept bâti sur une réserve initiale de 50 M$."),
+      TBL([B("","" ),{num:"Y1"},{num:"Y2"},{num:"Y3"},{num:"Y4"},{num:"Y5"}],[
+        [B("Private capital deployed (cumulative)","Capital privé déployé (cumulatif)"),{num:"$50M"},{num:"$150M"},{num:"$325M"},{num:"$550M"},{num:"$800M"}],
+        [B("Premiums collected","Primes perçues"),{num:"$3M"},{num:"$6M"},{num:"$10.5M"},{num:"$13.5M"},{num:"$15M"}],
+        [B("Sovereign reserve","Réserve souveraine"),{num:"$51.2M"},{num:"$53.6M"},{num:"$57.8M"},{num:"$63.2M"},{num:"~$69M"}]]),
+      P("Over five years, $800M of private capital is deployed against $48M of cumulative premiums. Provided portfolio failure rates stay below the priced threshold, the net cost of the reserve trends toward zero.","Sur cinq ans, 800 M$ de capital privé sont déployés contre 48 M$ de primes cumulées. Tant que le taux d'échec du portefeuille reste sous le seuil tarifé, le coût net de la réserve tend vers zéro.")]},
+    {id:"prec", n:B("Precedents","Précédents"), body:[
+      P("Every model where the government plays insurer rather than investor has produced positive or neutral results for taxpayers and attractive returns for private investors.","Chaque modèle où le gouvernement joue le rôle d'assureur plutôt que d'investisseur a produit des résultats positifs ou neutres pour le contribuable et des rendements attrayants pour les investisseurs privés.",true),
+      UL([B("Completion bonds in film production.","Les completion bonds en production cinématographique."),
+          B("UK Growth Guarantee Scheme (British Business Bank).","Le UK Growth Guarantee Scheme (British Business Bank)."),
+          B("US Treasury Asset Guarantee Program.","L'Asset Guarantee Program du Trésor américain."),
+          B("Export Development Canada — self-sufficient export insurance, the Canadian federal precedent.","Exportation et développement Canada — assurance à l'exportation autosuffisante, le précédent fédéral canadien.")])]}
+   ]},
+ { id:"fund", kind:"private", x:440,y:250,w:320,h:140,
+   tag:B("The private export fund","Le fonds privé d'exportation"), t:B("Protected capital fund","Fonds à capital protégé"), s:B("professionally managed · manager has skin in the game","géré par un professionnel · qui engage son propre argent"), k:B("deploys $250M+/yr — 100% private","déploie 250 M$+/an — 100 % privé"),
+   facets:[
+    {id:"structure", n:B("Structure","Structure"), body:[
+      TBL([B("Parameter","Paramètre"),B("Detail","Détail")],[
+        [B("Target capital","Capital cible"),B("$250M+ per year, 100% private","250 M$+ par année, 100 % privé")],
+        [B("Manager","Gestionnaire"),B("Selected by public RFP; 2–5% co-investment (skin in the game)","Sélectionné par appel d'offres public; co-investissement de 2 à 5 % (engagement personnel)")],
+        [B("Instruments","Instruments"),B("Participating loans, quasi-equity, royalties on IP, mezzanine debt, minority equity","Prêts participatifs, quasi-équité, royautés sur la PI, dette mezzanine, équité minoritaire")],
+        [B("Term","Durée"),B("Evergreen (semi-annual redemptions) or closed 7–10-year fund","Evergreen (rachats semestriels) ou fonds fermé de 7 à 10 ans")],
+        [B("Protection model","Modèle de protection"),B("Sovereign reinsurance — capital protected by risk profile","Réassurance souveraine — capital protégé selon le profil de risque")],
+        [B("IP condition","Condition PI"),B("Eligibility: the IP — or a lasting right to its revenues — stays in Canada (ownership, co-ownership, licence or royalty)","Admissibilité : la PI — ou un droit durable sur ses revenus — reste au Canada (propriété, copropriété, licence ou royauté)")],
+        [B("Contract standard","Standard contractuel"),B("Financed producers commit to the Recoupment Standard","Les producteurs financés s'engagent au Standard de recoupment")]])]},
+    {id:"returns", n:B("Investor return","Rendement investisseur"), body:[
+      STAT([{v:"8–15%",l:B("target net IRR","TRI net cible")},{v:"~60%",l:B("of premiums → insured yield","des primes → rendement assuré")},{v:"~40%",l:B("of premiums → sovereign reserve","des primes → réserve souveraine")}],true),
+      P("The investor gets an insured yield funded by premiums plus the upside of the projects. The state's protection absorbs part of the downside, which is what draws institutional money into a sector it would otherwise avoid.","L'investisseur obtient un rendement assuré financé par les primes, plus la plus-value des projets. La protection de l'État absorbe une partie du risque de perte, ce qui attire l'argent institutionnel vers un secteur qu'il éviterait autrement.",true),
+      P("Sectors growing 12–25% a year; capital protected by the state; commercial discipline enforced by the Recoupment Standard.","Des secteurs en croissance de 12 à 25 % par année; un capital protégé par l'État; une discipline commerciale imposée par le Standard de recoupment.")]},
+    {id:"flows", n:B("Money in, money out","Entrées et sorties"), body:[
+      STEPS([B("Private investors commit capital to the fund.","Les investisseurs privés engagent du capital dans le fonds."),
+             B("The fund finances qualified export projects — protected financing plus export advances.","Le fonds finance des projets d'exportation qualifiés — financement protégé et avances à l'exportation."),
+             B("Projects pay premiums (3–12%); the fund splits them between insured yield and the sovereign reserve.","Les projets versent des primes (3 à 12 %); le fonds les répartit entre rendement assuré et réserve souveraine."),
+             B("Export revenues flow back under the Recoupment Standard; investors receive capital, yield and upside.","Les revenus d'exportation reviennent sous le Standard de recoupment; les investisseurs reçoivent capital, rendement et plus-value.")]),
+      NOTE("The state never invests — it insures. Private capital invests, and the reserve grows on the premiums.","L'État n'investit jamais — il assure. Le privé investit, et la réserve croît au fil des primes.",true)]}
+   ]},
+ { id:"office", kind:"gov", x:890,y:250,w:280,h:140,
+   tag:B("Strategist","Stratège"), t:B("Executive production office","Bureau de production exécutive"), s:B("40–50 experienced producers","40 à 50 producteurs d'expérience"), k:B("80–120 opportunities / year","80 à 120 occasions / an"),
+   facets:[
+    {id:"process", n:B("Processes","Processus"), body:[
+      P("Producers, not administrators. Each office is led by a producer who has delivered projects abroad and can tell in ten minutes whether an opportunity is real.","Des producteurs, pas des diplomates. Chaque bureau est dirigé par un producteur qui a livré des projets à l'international et peut dire en dix minutes si une occasion est réelle.",true),
+      H("Five roles","Cinq rôles"),
+      P("Scout → first filter (field qualification) → due diligence (verify the stakeholders) → connector (put the Canadian company in the room) → second-level validation by a Sage.","Éclaireur → premier filtre (qualification terrain) → due diligence (vérifier les parties prenantes) → connecteur (mettre l'entreprise en contact) → validation de second niveau par un Sage."),
+      H("Six-step qualification pipeline","Pipeline de qualification en six étapes"),
+      STEPS([B("Opportunity — signal received (embassy, trade mission, Sage, producer).","Occasion — signal reçu (ambassade, mission, Sage, producteur)."),
+             B("Qualification — who, how serious, budget, timeline? Producer + Sage.","Qualification — qui, sérieux, budget, échéancier? Producteur + Sage."),
+             B("Quantification — size, potential revenue, business model. Producer + Canadian company.","Quantification — taille, revenus potentiels, modèle d'affaires. Producteur + entreprise canadienne."),
+             B("Summary — full file: risks, plan, cash-flow needs. Head office.","Sommaire — dossier complet : risques, plan, besoins de trésorerie. Siège."),
+             B("Scoring — export, viability, IP, capacity. Eligibility committee.","Scoring — exportation, viabilité, PI, capacité. Comité d'admissibilité."),
+             B("Decision — viable: Export Advance + protected fund; not viable: stop.","Décision — viable : Avance Export + fonds protégé; non viable : arrêt.")]),
+      P("Same pipeline for PULL (the client approaches) and PUSH (we identify and approach).","Même pipeline en mode PULL (le client approche) et PUSH (on identifie et on approche).")]},
+    {id:"locations", n:B("Locations","Bureaux"), body:[
+      P("A small footprint in key markets, co-located with existing Canadian presence rather than built from scratch. In the federal version, offices can share space with Global Affairs Canada missions and the Trade Commissioner Service.","Une petite empreinte dans les marchés clés, en colocation avec la présence canadienne existante plutôt que bâtie de zéro. Dans la version fédérale, les bureaux peuvent partager les locaux des missions d'Affaires mondiales Canada et du Service des délégués commerciaux.",true),
+      TBL([B("Office","Bureau"),B("Type","Type"),B("Sectors","Secteurs"),B("Markets","Marchés"),B("Goal","Objectif")],[
+        [B("Los Angeles","Los Angeles"),B("Permanent","Permanent"),B("Games, VFX, live shows","Jeux, VFX, spectacles"),B("USA, Las Vegas, Hollywood","É.-U., Las Vegas, Hollywood"),B("Studios, publishers and Strip producers — the largest buyer market","Studios, éditeurs et producteurs du Strip — le plus grand marché acheteur")],
+        [B("Paris / London","Paris / Londres"),B("Permanent","Permanent"),B("Circus, immersive, VFX, co-production","Cirque, immersif, VFX, coproduction"),B("Europe, North Africa","Europe, Afrique du Nord"),B("Public broadcasters, festivals, co-production treaties","Diffuseurs publics, festivals, traités de coproduction")],
+        [B("Dubai / Abu Dhabi","Dubaï / Abou Dhabi"),B("Antenna","Antenne"),B("Mega-projects, immersive","Mégaprojets, immersif"),B("UAE, Saudi Arabia","ÉAU, Arabie saoudite"),B("Giga-project developers buying turnkey shows and experiences","Promoteurs de gigaprojets achetant spectacles et expériences clés en main")],
+        [B("Singapore","Singapour"),B("Antenna","Antenne"),B("Immersive, games","Immersif, jeux"),B("Southeast Asia, Vietnam","Asie du Sud-Est, Vietnam"),B("Fast-growing venue and studio market","Marché des salles et des studios en forte croissance")],
+        [B("Tokyo","Tokyo"),B("Antenna","Antenne"),B("Games, immersive","Jeux, immersif"),B("Japan, Korea, China","Japon, Corée, Chine"),B("Publishers and IP licensing partners","Éditeurs et partenaires de licence de PI")]]),
+      NOTE("Offices are seeded for 24 months, then become self-supporting: producers monetize the deals they help close.","Les bureaux sont amorcés pendant 24 mois, puis deviennent autoportants : les producteurs monétisent les ententes qu'ils aident à conclure.")]},
+    {id:"budget", n:B("Budget","Budget"), body:[
+      P("Operating cost in the order of $30M a year in the proof-of-concept (Quebec-scale) model. Treat it as a ceiling: it can be optimized once we know which federal infrastructure abroad can be shared.","Coût de fonctionnement de l'ordre de 30 M$ par année dans le modèle de preuve de concept (échelle du Québec). À traiter comme un plafond : il peut être optimisé une fois connu ce qui peut être partagé avec l'infrastructure fédérale à l'étranger.",true),
+      TBL([B("Line","Poste"),B("Annual","Annuel"),B("Share","Part")],[
+        [B("Team and head office (40–50 professionals)","Équipe et siège social (40 à 50 professionnels)"),{num:"$7M"},{num:"23%"}],
+        [B("International offices — experienced producers","Bureaux internationaux — producteurs d'expérience"),{num:"$6M"},{num:"20%"}],
+        [B("Export Advance program","Programme Avance Export"),{num:"$6M"},{num:"20%"}],
+        [B("Seed programs (prototypes, pre-revenue)","Programmes d'amorçage (prototypes, pré-revenus)"),{num:"$5M"},{num:"17%"}],
+        [B("Market intelligence","Intelligence de marché"),{num:"$2M"},{num:"7%"}],
+        [B("Conseil des Sages","Comité des Sages"),{num:"$1M"},{num:"3%"}],
+        [B("VFX recovery (temporary, 3 years)","Redressement VFX (temporaire, 3 ans)"),{num:"$3M"},{num:"10%"}],
+        [B("Total","Total"),{num:"$30M"},{num:"100%"}]]),
+      NOTE("Plus a one-time $50M reserve — an actuarial provision that stays in the treasury and grows on premiums. Two different fiscal facts: the bureau is an operating cost; the reserve is insurance.","Plus une réserve unique de 50 M$ — une provision actuarielle qui reste dans les coffres et croît au fil des primes. Deux faits fiscaux distincts : le bureau est un coût de fonctionnement; la réserve est une assurance.",true)]},
+    {id:"advance", n:B("Export Advance","Avance Export"), body:[
+      P("The direct answer to \"time kills deals\". Once an opportunity is qualified, the company must develop the concept, travel and negotiate — all before any contract. The office advances that cash.","La réponse directe à « le temps tue les affaires ». Une fois l'occasion qualifiée, l'entreprise doit développer le concept, voyager et négocier — tout cela avant tout contrat. Le bureau avance cette trésorerie.",true),
+      STAT([{v:"$25K–150K",l:B("per opportunity","par occasion")},{v:"$6M/yr",l:B("program budget — 40 to 80 opportunities","budget du programme — 40 à 80 occasions")},{v:"$0",l:B("risk for the SME","risque pour la PME")}]),
+      UL([B("Repaid when the contract signs.","Remboursée à la signature du contrat."),
+          B("Written off as an accepted loss if a positively qualified opportunity falls through.","Convertie en perte acceptée si une occasion qualifiée positivement tombe."),
+          B("Qualification itself costs the company nothing — it is paid by the office's operating budget.","La qualification elle-même ne coûte rien à l'entreprise — elle est financée par le budget de fonctionnement du bureau.")])]}
+   ]},
+ { id:"investors", kind:"private", x:40,y:520,w:270,h:120,
+   tag:B("Private capital","Capital privé"), t:B("Private investors","Investisseurs privés"), s:B("pension funds · institutions · family offices","caisses de retraite · institutions · family offices"), k:B("$250M+/yr · target IRR 8–15%","250 M$+/an · TRI cible 8 à 15 %"),
+   facets:[
+    {id:"who", n:B("Who they are","Qui ils sont"), body:[
+      P("Pension funds, institutional funds, family offices and impact funds — investors who want exposure to sectors growing 12 to 25% a year but will not carry unprotected production risk.","Caisses de retraite, fonds institutionnels, family offices et fonds d'impact — des investisseurs qui veulent une exposition à des secteurs en croissance de 12 à 25 % par année, mais qui ne porteront pas un risque de production non protégé.",true),
+      P("The capital is 100% private. It adds nothing to public spending.","Le capital est privé à 100 %. Il n'ajoute rien aux dépenses publiques.")]},
+    {id:"get", n:B("What they get","Ce qu'ils obtiennent"), body:[
+      STAT([{v:"8–15%",l:B("target net IRR","TRI net cible")},{v:"60–100%",l:B("capital protected, by risk tier","capital protégé, selon le palier de risque")}],true),
+      UL([B("An insured yield funded from premiums.","Un rendement assuré financé par les primes."),
+          B("Project upside — royalties, licences, equity.","La plus-value des projets — royautés, licences, équité."),
+          B("Deal flow qualified by producers in-market and validated by the Conseil des Sages.","Un flux d'occasions qualifié par des producteurs sur le terrain et validé par le Comité des Sages."),
+          B("Contracts protected by the Recoupment Standard — no \"Hollywood accounting\".","Des contrats protégés par le Standard de recoupment — pas de « comptabilité hollywoodienne ».")])]}
+   ]},
+ { id:"producers", kind:"gov", x:440,y:520,w:320,h:130,
+   tag:B("Creative content producers","Producteurs de contenu créatif"), t:B("Canadian SMEs","PME canadiennes"), s:B("film & TV co-production · games · touring shows · immersive · event tech","coproduction ciné/télé · jeux · tournées · immersif · techno événementielle"), k:B("condition: IP stays in Canada","condition : la PI reste au Canada"),
+   facets:[
+    {id:"who", n:B("Who qualifies","Qui est admissible"), body:[
+      P("Commercial creative content built for international markets — not cultural content for a domestic audience, which existing programs already serve well.","Du contenu créatif commercial conçu pour les marchés internationaux — pas du contenu culturel pour un public national, que les programmes existants servent déjà bien.",true),
+      H("The four-question test","Le test en quatre questions"),
+      STEPS([B("Is the target audience mainly domestic? Yes → cultural.","Le public cible est-il surtout national? Oui → culturel."),
+             B("Does the content carry national identity as its purpose? Yes → cultural.","Le contenu a-t-il l'identité nationale pour objet? Oui → culturel."),
+             B("Does the model rely on export (over 50% of revenue)? Yes → commercial creative.","Le modèle repose-t-il sur l'exportation (plus de 50 % des revenus)? Oui → créatif commercial."),
+             B("Sellable as-is in 10+ countries? Yes → commercial creative.","Vendable tel quel dans 10 pays et plus? Oui → créatif commercial.")]),
+      P("Sectors: film and TV co-production, video games, touring live productions, immersive and experiential, audio and music, event technology.","Secteurs : coproduction cinéma et télé, jeux vidéo, productions en tournée, immersif et expérientiel, audio et musique, technologie événementielle.")]},
+    {id:"journey", n:B("The journey","Le parcours"), body:[
+      P("Three speeds, and the SME carries almost no risk at any of them.","Trois vitesses, et la PME ne porte presque aucun risque à aucune d'elles.",true),
+      TBL([B("Speed","Vitesse"),B("Who pays","Qui paie"),B("Risk for the SME","Risque pour la PME")],[
+        [B("1 · Qualification","1 · Qualification"),B("The office's operating budget","Le budget de fonctionnement du bureau"),B("Zero","Zéro")],
+        [B("2 · Development — Export Advance $25K–150K","2 · Développement — Avance Export 25 à 150 K$"),B("The office (repayable on signature)","Le bureau (remboursable à la signature)"),B("Zero","Zéro")],
+        [B("3 · Investment — protected private capital","3 · Investissement — capital privé protégé"),B("The private fund, protected by the reserve","Le fonds privé, protégé par la réserve"),B("Limited (protected capital)","Limité (capital protégé)")]])]},
+    {id:"pushpull", n:B("Push, pull and who owns the IP","Push, pull et qui détient la PI"), body:[
+      P("Projects start two ways, and each has one moment where ownership is decided.","Les projets naissent de deux façons, et chacune a un moment où la propriété se décide.",true),
+      TBL([B("","" ),B("PUSH — we start with our idea","PUSH — on part de notre idée"),B("PULL — a customer expresses a need","PULL — un client exprime un besoin")],[
+        [B("How it starts","Comment ça commence"),B("Idea → script or concept → financing → production → distribution","Idée → scénario ou concept → financement → production → distribution"),B("Need → we answer the call (at our cost) → one vendor selected → contract → production → roll-out → acceptance","Besoin → on répond à l'appel (à nos frais) → un fournisseur retenu → contrat → production → déploiement → acceptation")],
+        [B("The IP moment","Le moment PI"),B("Financing: a financier asks for the IP in exchange for money. Protected capital means the producer never has to trade it.","Le financement : un financier demande la PI en échange de l'argent. Le capital protégé évite au producteur cet échange."),B("The contract: everything about ownership is decided before a day of production. By default the customer keeps everything.","Le contrat : tout ce qui touche la propriété se décide avant une seule journée de production. Par défaut, le client garde tout.")],
+        [B("Default outcome","Résultat par défaut"),B("Canadian-owned IP","PI canadienne"),B("Work-for-hire — the VFX trap","Travail à forfait — le piège des VFX")]]),
+      H("Where a contract can land","Où un contrat peut atterrir"),
+      TBL([B("Case","Cas"),B("Who holds the title","Qui détient le titre"),B("What flows back to Canada","Ce qui revient au Canada"),B("Engine","Moteur")],[
+        [B("Buy-out","Rachat complet"),B("Customer","Client"),B("One-time fee, nothing after","Un cachet, rien ensuite"),B("Export Advance only","Avance Export seulement")],
+        [B("Buy-out + royalties","Rachat + royautés"),B("Customer","Client"),B("Royalty per show or per unit, cascading to creators","Royauté par représentation ou par unité, en cascade vers les créateurs"),B("Eligible","Admissible")],
+        [B("Shared IP","PI partagée"),B("Co-owned by territory or use","Copropriété par territoire ou usage"),B("Revenue share on every exploitation","Part des revenus à chaque exploitation"),B("Eligible","Admissible")],
+        [B("Licence","Licence"),B("Canadian company","Entreprise canadienne"),B("Licence fees by territory, window, platform","Redevances par territoire, fenêtre, plateforme"),B("Eligible","Admissible")],
+        [B("Full ownership","Propriété complète"),B("Canadian company","Entreprise canadienne"),B("All export revenue and derivatives","Tous les revenus d'exportation et dérivés"),B("Eligible","Admissible")]]),
+      NOTE("Real cases: Dragone's shows for Wanda in China (client owns the show, pays a royalty per performance that cascades to designers and composers); Vikings, a Canada–Ireland co-production with MGM; Un gars, une fille, licensed in 30+ markets; PAW Patrol and Cirque, fully owned.","Cas réels : les spectacles de Dragone pour Wanda en Chine (le client détient le spectacle et verse une royauté par représentation, en cascade vers les concepteurs et compositeurs); Vikings, coproduction Canada–Irlande avec MGM; Un gars, une fille, sous licence dans 30+ marchés; PAW Patrol et le Cirque, en pleine propriété.",true),
+      P("A PULL project that keeps a right becomes PUSH catalogue: the resident show that tours, the format that sells again.","Un projet PULL qui conserve un droit devient un catalogue PUSH : le spectacle résident qui part en tournée, le format qui se vend de nouveau.")]},
+    {id:"conditions", n:B("Conditions","Conditions"), body:[
+      P("The IP stays in Canada.","La PI reste au Canada.",true),
+      P("In full: eligibility for protected capital requires that a recurring Canadian revenue right survive the contract — ownership, co-ownership, licence, or a royalty on the work — and that the contract carry the Recoupment Standard. Pure buy-out work qualifies for the Export Advance and qualification support only.","En clair : l'admissibilité au capital protégé exige qu'un droit de revenu récurrent demeure au Canada après le contrat — propriété, copropriété, licence ou royauté sur l'œuvre — et que le contrat porte le Standard de recoupment. Le travail en rachat complet n'a droit qu'à l'Avance Export et au soutien à la qualification."),
+      UL([B("The IP — or a lasting right to its revenues — retained by the Canadian company: the eligibility condition that turns cultural policy from subsidy into asset-building.","La PI — ou un droit durable sur ses revenus — conservée par l'entreprise canadienne : la condition d'admissibilité qui transforme la politique culturelle de subvention en constitution d'actifs."),
+          B("Adoption of the published Recoupment Standard in every international contract.","Adoption du Standard de recoupment publié dans chaque contrat international."),
+          B("R&D tax credits stay with the producer and are deducted from the capital request before scoring.","Les crédits d'impôt R&D restent au producteur et sont déduits de la demande de capital avant le scoring.")]),
+      P("Before: $100,000 lost on a false opportunity. Now: a producer qualifies, a Sage validates, the Export Advance finances, the Standard protects the contract.","Avant : 100 000 $ perdus sur une fausse occasion. Maintenant : un producteur qualifie, un Sage valide, l'Avance Export finance, le Standard protège le contrat.")]},
+    {id:"example", n:B("Worked example","Exemple intégré"), body:[
+      P("From opportunity to contract — an immersive show for a mega-resort in Saudi Arabia.","De l'occasion au contrat — un spectacle immersif pour un mégacomplexe en Arabie saoudite.",true),
+      STEPS([B("Signal — the Middle East Sage flags a Saudi developer looking for an immersive concept. He knows him: serious, three projects delivered, budget confirmed.","Signal — le Sage Moyen-Orient signale un promoteur saoudien cherchant un concept immersif. Il le connaît : sérieux, trois projets livrés, budget confirmé."),
+             B("Qualification — the Dubai producer meets the developer and verifies budget and timeline.","Qualification — le producteur de Dubaï rencontre le promoteur et vérifie budget et échéancier."),
+             B("Matchmaking — the office identifies a 25-person Montreal immersive studio.","Jumelage — le bureau identifie un studio immersif montréalais de 25 personnes."),
+             B("Export Advance — $100K for concept, two trips to Riyadh, mock-up, negotiation.","Avance Export — 100 K$ pour le concept, deux voyages à Riyad, maquette, négociation."),
+             B("Contract — signed after 8 months: $5M, turnkey plus royalties, under the Recoupment Standard.","Contrat — signé après 8 mois : 5 M$, clé en main plus royautés, sous le Standard de recoupment."),
+             B("Fund — the private fund invests $2M, 80% protected (medium risk). Premium 5% = $100K: $60K to investors' insured yield, $40K ceded to the reserve.","Fonds — le fonds privé investit 2 M$, protégés à 80 % (risque moyen). Prime de 5 % = 100 K$ : 60 K$ vers le rendement assuré, 40 K$ cédés à la réserve."),
+             B("Delivery — the advance is repaid; the investor gets capital plus yield plus upside; the reserve grows by $40K; the IP stays in Canada.","Livraison — l'avance est remboursée; l'investisseur reçoit capital, rendement et plus-value; la réserve croît de 40 K$; la PI reste au Canada.")])]}
+   ]},
+ { id:"customers", kind:"gov", x:890,y:520,w:280,h:120,
+   tag:B("Customers","Clients"), t:B("World markets","Marchés mondiaux"), s:B("distributors · platforms · venues · co-producers · broadcasters · festivals","distributeurs · plateformes · salles · coproducteurs · diffuseurs · festivals"), k:B("contracts under the Recoupment Standard","contrats sous le Standard de recoupment"),
+   facets:[
+    {id:"who", n:B("Who buys","Qui achète"), body:[
+      UL([B("Distributors and streaming platforms — series, films, formats.","Distributeurs et plateformes — séries, films, formats."),
+          B("Venues, resorts and giga-project developers — touring and resident shows, immersive experiences, event technology.","Salles, complexes et promoteurs de gigaprojets — spectacles en tournée et résidents, expériences immersives, technologie événementielle."),
+          B("Publishers and licensing partners — game franchises and IP.","Éditeurs et partenaires de licence — franchises de jeux et PI."),
+          B("Co-producers and public broadcasters — ARTE, BBC, NHK, PBS and treaty partners.","Coproducteurs et diffuseurs publics — ARTE, BBC, NHK, PBS et partenaires de traités.")])]},
+    {id:"forms", n:B("Contract forms","Formes de contrat"), body:[
+      P("The Conseil steers each opportunity toward the right business model.","Le Comité oriente chaque occasion vers le bon modèle d'affaires."),
+      UL([B("Partnership / co-venture — shared IP and revenue.","Partenariat / coentreprise — PI et revenus partagés."),
+          B("Turnkey — delivered production, often with royalties on top.","Clé en main — production livrée, souvent avec royautés en sus."),
+          B("Licence — IP licensed by territory, window and platform.","Licence — PI concédée par territoire, fenêtre et plateforme."),
+          B("Royalties — recurring revenue on Canadian-held IP.","Royautés — revenus récurrents sur une PI canadienne.")]),
+      NOTE("Whatever the form, the contract carries the ten clauses of the Recoupment Standard — the collective floor foreign counterparties learn to respect.","Quelle que soit la forme, le contrat porte les dix clauses du Standard de recoupment — le plancher collectif que les contreparties étrangères apprennent à respecter.",true)]}
+   ]},
+ { id:"standard", kind:"gov", x:470,y:686,w:260,h:52, small:true,
+   tag:B("",""), t:B("Recoupment Standard","Standard de recoupment"), s:B("10 clauses — no \"Hollywood accounting\"","10 clauses — pas de « comptabilité hollywoodienne »"), k:B("",""),
+   facets:[
+    {id:"why", n:B("Why it exists","Pourquoi"), body:[
+      P("The American film industry has spent seventy years perfecting accounting that makes profits vanish on paper. Forrest Gump ($677M worldwide) long sat as a loss in the studio's books; Return of the Jedi was still \"losing\" money twenty years after release.","L'industrie du cinéma américain a perfectionné pendant soixante-dix ans une comptabilité qui fait disparaître les profits sur papier. Forrest Gump (677 M$ US dans le monde) a longtemps figuré comme un échec dans les livres du studio; Le Retour du Jedi « perdait » encore de l'argent vingt ans après sa sortie.",true),
+      P("For Canadian SMEs signing with global distributors and platforms, the contractual asymmetry is massive. The Standard turns the asymmetry each SME faces alone into a collective Canadian advantage — a guild floor. It also materially lowers the risk carried by the reserve.","Pour les PME canadiennes qui signent avec des distributeurs et des plateformes mondiales, l'asymétrie contractuelle est massive. Le Standard transforme l'asymétrie que chaque PME affronte seule en avantage canadien collectif — un plancher de guilde. Il réduit aussi sensiblement le risque porté par la réserve."),
+      P("Codified from the hard-won experience of Canadian producers in the United States, Asia, the Middle East and Latin America.","Codifié à partir de l'expérience durement acquise de producteurs canadiens aux États-Unis, en Asie, au Moyen-Orient et en Amérique latine.")]},
+    {id:"clauses", n:B("The 10 clauses","Les 10 clauses"), body:[
+      STEPS([B("Strict definition of Gross Receipts — gross minus only third-party sales taxes, capped distribution fees and pre-defined, capped commercial rebates. No overhead, no corporate allocations.","Définition stricte des recettes brutes — brut moins seulement les taxes de vente tierces, les frais de distribution plafonnés et des remises commerciales prédéfinies et plafonnées. Pas d'overhead, pas d'allocations corporatives."),
+             B("Caps on distribution fees — theatrical 20%, TV 15%, digital 10%, home video 25%; live shows negotiated per channel.","Plafonds aux frais de distribution — salle 20 %, télé 15 %, numérique 10 %, vidéo domestique 25 %; spectacles négociés par canal."),
+             B("Affiliated transactions documented at market price, with the right to compare to third-party deals.","Transactions affiliées documentées au prix du marché, avec droit de comparaison à des transactions tierces."),
+             B("Full audit rights — quarterly reports, annual independent audit, audit cost shifted to the distributor above a 5% discrepancy.","Droits d'audit complets — rapports trimestriels, audit annuel indépendant, coût de l'audit au distributeur au-delà d'un écart de 5 %."),
+             B("No cross-collateralization — project-by-project accounting, never consolidated with the distributor's other losses.","Interdiction de la cross-collateralization — comptabilité projet par projet, jamais consolidée avec les autres pertes du distributeur."),
+             B("Most Favoured Nation — better terms granted to any other rights-holder apply automatically.","Nation la plus favorisée — des termes plus favorables accordés à un autre titulaire s'appliquent automatiquement."),
+             B("Granular reporting — territory by territory, window by window, platform by platform.","Granularité des rapports — territoire par territoire, fenêtre par fenêtre, plateforme par plateforme."),
+             B("Caps on reserves — limited in amount and duration; automatic release after 18 months.","Plafonds de réserves — limitées en montant et en durée; libération automatique après 18 mois."),
+             B("Pre-approval of sub-agents — the whole sub-distribution chain approved by the producer, with cascade margins disclosed.","Pré-approbation des sous-agents — toute la chaîne de sous-distribution approuvée par le producteur, marges en cascade divulguées."),
+             B("No studio-defined \"Net Profits\" — sharing from Adjusted Gross Receipts, with an explicit, auditable formula.","Aucune définition « Net Profits » du studio — partage à partir des recettes brutes ajustées, formule explicite et auditable.")])]},
+    {id:"modes", n:B("Four failure modes","Quatre modes de défaillance"), body:[
+      TBL([B("Mode","Mode"),B("Mechanism","Mécanisme"),B("Protection","Protection")],[
+        [B("Adversarial extraction","Extraction adversariale"),B("Studio engineers \"net profits\" to zero via overhead, affiliate fees, cross-collateralization","Le studio ramène les « profits nets » à zéro par overhead, frais affiliés, cross-collateralization"),B("The 10 accounting clauses","Les 10 clauses comptables")],
+        [B("Operational discretion","Discrétion opérationnelle"),B("Local operator has one lever (discounts) with no cap or alert","L'opérateur local n'a qu'un levier (rabais) sans plafond ni signal d'alerte"),B("Commercial guardrails","Garde-fous commerciaux")],
+        [B("Single-lever incentives","Incitation à levier unique"),B("Local manager's KPIs force one action — typically the discount","Les KPI du gestionnaire local imposent une seule action — typiquement le rabais"),B("KPI framing","Encadrement des KPI")],
+        [B("Accounting classification","Classification comptable"),B("Discounts booked as expense rather than contra-revenue","Rabais classés en dépense plutôt qu'en contra-revenu"),B("Reporting structure","Structure de reporting")]])]}
+   ]}
+];
+
+const FLOWS = [
+ {from:"policy",to:"reserve",kind:"pub",l:B("one-time seed $50M","amorçage unique 50 M$"),path:"M165,132 L165,250",lx:172,ly:196},
+ {from:"reserve",to:"fund",kind:"pub",l:B("protects capital","protège le capital"),path:"M310,300 L440,300",lx:325,ly:292},
+ {from:"fund",to:"reserve",kind:"pub",l:B("premiums 3–12%","primes 3–12 %"),path:"M440,352 L310,352",lx:330,ly:372},
+ {from:"investors",to:"fund",kind:"priv",l:B("invest $250M+/yr","investissent 250 M$+/an"),path:"M310,560 C380,560 400,420 440,370",lx:330,ly:472},
+ {from:"fund",to:"investors",kind:"priv",l:B("insured yield + upside","rendement assuré + plus-value"),path:"M470,390 C440,470 380,600 310,600",lx:330,ly:620},
+ {from:"fund",to:"producers",kind:"priv",l:B("protected financing + export advances","financement protégé + avances export"),path:"M600,390 L600,520",lx:608,ly:462},
+ {from:"sages",to:"fund",kind:"gov",l:B("governs the mandate","gouverne le mandat"),path:"M600,126 L600,250",lx:608,ly:196},
+ {from:"sages",to:"office",kind:"gov",l:B("validates projects in 48h","valide les projets en 48 h"),path:"M730,90 C860,90 940,150 1000,250",lx:790,ly:150},
+ {from:"office",to:"producers",kind:"gov",l:B("qualified opportunities","occasions qualifiées"),path:"M930,390 C900,460 820,520 760,560",lx:820,ly:470},
+ {from:"office",to:"customers",kind:"gov",l:B("sells & negotiates","vend et négocie"),path:"M1030,390 L1030,520",lx:1038,ly:462},
+ {from:"producers",to:"customers",kind:"priv",l:B("export ↔ revenues","exportation ↔ revenus"),path:"M760,600 L890,600",lx:790,ly:592},
+ {from:"producers",to:"standard",kind:"gov",l:B("",""),path:"M600,650 L600,686"},
+ {from:"reserve",to:"outcomes",kind:"pub",l:B("",""),path:""}
+];
+
+
+// ---------- Q&A: stakeholder questions ----------
+const QA_COMPS = ["policy","reserve","fund","sages","office","producers","customers","standard","outcomes"];
+const QA_GROUPS = [
+ {id:"pch", n:B("Canadian Heritage (PCH)","Patrimoine canadien (PCH)")},
+ {id:"fin", n:B("Finance Canada · Treasury Board","Finances Canada · Conseil du Trésor")},
+ {id:"agn", n:B("Existing agencies","Organismes existants")},
+ {id:"inv", n:B("Investors · fund manager","Investisseurs · gestionnaire")},
+ {id:"prod", n:B("Producers · SMEs · creators","Producteurs · PME · créateurs")},
+ {id:"gov", n:B("Governance · legal","Gouvernance · juridique")},
+ {id:"prov", n:B("Quebec · provinces","Québec · provinces")},
+ {id:"pub", n:B("Media · opposition · public","Médias · opposition · public")},
+ {id:"intl", n:B("Foreign buyers · AI","Acheteurs étrangers · IA")}
+];
+const QA = [{"g":"pch","c":"policy","q":{"en":"Is this a claim on the June 3, 2026 commitment?","fr":"Est-ce une demande sur l'engagement du 3 juin 2026?"},"a":{"en":"No. The engine is a layer on top of what exists, not a competing claim. Its operating cost is in the order of $30M a year in the proof-of-concept model, treated as a ceiling that can be optimized by sharing federal infrastructure abroad. How to fund it is the government's decision. The $250M+ a year is private capital and adds nothing to public spending.","fr":"Non. Le moteur est une couche ajoutée à ce qui existe, pas une demande concurrente. Son coût de fonctionnement est de l'ordre de 30 M$ par année dans le modèle de preuve de concept, traité comme un plafond optimisable en partageant l'infrastructure fédérale à l'étranger. Le mode de financement relève du gouvernement. Les 250 M$+ par année sont du capital privé et n'ajoutent rien aux dépenses publiques."}},{"g":"pch","c":"policy","q":{"en":"What does it do that the June 3 investment doesn't already do?","fr":"Que fait-il que l'investissement du 3 juin ne fait pas déjà?"},"a":{"en":"The June 3 commitment stabilizes production at home. Capacity is not Canada's problem. No federal instrument converts that capacity into export revenue and Canadian-held IP: nobody qualifies international opportunities in-market, advances the cash between qualification and contract, or brings protected capital to develop and hold a franchise. That is the gap the engine fills.","fr":"L'engagement du 3 juin stabilise la production au pays. La capacité n'est pas le problème du Canada. Aucun instrument fédéral ne convertit cette capacité en revenus d'exportation et en PI canadienne : personne ne qualifie les occasions sur le terrain, n'avance la trésorerie entre la qualification et le contrat, ni n'apporte du capital protégé pour développer et détenir une franchise. C'est ce vide que le moteur comble."}},{"g":"pch","c":"office","q":{"en":"How is it different from existing export support (Creative Export Canada, trade missions)?","fr":"En quoi diffère-t-il du soutien à l'exportation existant (Exportation créative Canada, missions commerciales)?"},"a":{"en":"Existing programs fund attendance and marketing: a booth, a trip, a market. The engine puts experienced producers in the market to qualify a lead in 48 hours instead of 3 months, advances $25K–150K so the company can develop the concept and negotiate before any contract, and connects the deal to protected private capital. Grants help you show up; the engine helps you close and keep the IP.","fr":"Les programmes existants financent la présence et le marketing : un kiosque, un voyage, un marché. Le moteur place des producteurs d'expérience sur le terrain pour qualifier une occasion en 48 h au lieu de 3 mois, avance de 25 à 150 K$ pour développer le concept et négocier avant tout contrat, et relie l'entente à du capital privé protégé. Les subventions aident à être présent; le moteur aide à conclure et à garder la PI."}},{"g":"pch","c":"producers","q":{"en":"Why say 'creative content' instead of 'audiovisual'?","fr":"Pourquoi dire « contenu créatif » plutôt qu'« audiovisuel »?"},"a":{"en":"Because live shows, immersive experiences and event technology are among Canada's strongest export performers and are usually left out of audiovisual frameworks. Creative content covers film and TV co-production, games, touring productions, immersive, audio and music, and event technology.","fr":"Parce que les spectacles, les expériences immersives et la technologie événementielle comptent parmi les meilleures performances canadiennes à l'exportation et sont généralement exclus des cadres audiovisuels. Le contenu créatif couvre la coproduction ciné/télé, les jeux, les tournées, l'immersif, l'audio et la musique, et la technologie événementielle."}},{"g":"pch","c":"producers","q":{"en":"Is this cultural policy or industrial policy?","fr":"Est-ce une politique culturelle ou industrielle?"},"a":{"en":"Industrial. The four-question test separates the two: domestic audience or national identity as purpose means cultural, served by existing programs; export over 50% of revenue and sellable as-is in 10+ countries means commercial creative content, served by the engine. Cultural programs and tax credits stay exactly as they are.","fr":"Industrielle. Le test en quatre questions sépare les deux : public national ou identité nationale comme objet, c'est culturel, servi par les programmes existants; exportation supérieure à 50 % des revenus et vendable tel quel dans 10 pays et plus, c'est du contenu créatif commercial, servi par le moteur. Les programmes culturels et les crédits d'impôt restent intacts."}},{"g":"pch","c":"outcomes","q":{"en":"What are you actually asking for?","fr":"Que demandez-vous concrètement?"},"a":{"en":"Three things. A two-hour technical working session with the officials implementing the commitment, to walk through the reserve mechanics, the risk tiers and the Recoupment Standard. A re-run of the five-year model with departmental data across all provinces and the full breadth of creative content. And the scoping of a pilot: a first cohort of qualified export opportunities, with the Conseil profiles, the fund-manager mandate and the reserve size defined.","fr":"Trois choses. Une séance de travail technique de deux heures avec les fonctionnaires qui mettent en œuvre l'engagement, pour parcourir la mécanique de la réserve, les paliers de risque et le Standard de recoupment. Une nouvelle exécution du modèle sur cinq ans avec les données du ministère, toutes provinces et tout le contenu créatif confondus. Et le cadrage d'un projet pilote : une première cohorte d'occasions d'exportation qualifiées, avec les profils du Comité, le mandat du gestionnaire et la taille de la réserve définis."}},{"g":"pch","c":"office","q":{"en":"How does it serve official languages and all regions, not just Montreal?","fr":"Comment sert-il les langues officielles et toutes les régions, pas seulement Montréal?"},"a":{"en":"The proof-of-concept figures are Quebec-scale because that is where the model was built. The federal version operates across all provinces, in both official languages, through offices co-located with Canadian missions abroad; the Conseil profiles are drawn nationally.","fr":"Les chiffres de la preuve de concept sont à l'échelle du Québec parce que c'est là que le modèle a été bâti. La version fédérale opère dans toutes les provinces, dans les deux langues officielles, par des bureaux en colocation avec les missions canadiennes; les profils du Comité sont recrutés à l'échelle nationale."}},{"g":"fin","c":"reserve","q":{"en":"What is the real cost to the taxpayer?","fr":"Quel est le coût réel pour le contribuable?"},"a":{"en":"Two fiscal facts, stated separately. The bureau is an operating cost: about $30M a year in the proof-of-concept model, a ceiling to be optimized. The reserve is insurance: a one-time $50M actuarial provision that stays in the treasury and grows on premiums, from $50M to about $69M by Year 5. Provided portfolio failure rates stay below the priced threshold, the net cost of the reserve trends to zero.","fr":"Deux faits fiscaux, énoncés séparément. Le bureau est un coût de fonctionnement : environ 30 M$ par année dans le modèle de preuve de concept, un plafond à optimiser. La réserve est une assurance : une provision actuarielle unique de 50 M$ qui reste dans les coffres et croît au fil des primes, de 50 M$ à environ 69 M$ en An 5. Tant que le taux d'échec du portefeuille reste sous le seuil tarifé, le coût net de la réserve tend vers zéro."}},{"g":"fin","c":"reserve","q":{"en":"What happens if failure rates exceed what the premiums price in?","fr":"Que se passe-t-il si les taux d'échec dépassent ce que les primes tarifent?"},"a":{"en":"The reserve pays claims up to what it holds; there is no open-ended guarantee. Protection is risk-adjusted, 100/80/60% by tier, about 88% weighted on a balanced portfolio, and insurance capacity only grows as the reserve grows. The Recoupment Standard materially lowers the risk carried. The equilibrium in the model holds if portfolio failure stays below roughly 15%.","fr":"La réserve paie les réclamations jusqu'à concurrence de ce qu'elle détient; il n'y a pas de garantie illimitée. La protection est ajustée au risque, 100/80/60 % selon le palier, environ 88 % en moyenne pondérée sur un portefeuille équilibré, et la capacité d'assurance ne croît qu'avec la réserve. Le Standard de recoupment réduit sensiblement le risque porté. L'équilibre du modèle tient si l'échec du portefeuille reste sous environ 15 %."}},{"g":"fin","c":"reserve","q":{"en":"Is the reserve a contingent liability on the government's books?","fr":"La réserve est-elle un passif éventuel dans les livres du gouvernement?"},"a":{"en":"It is structured as a provision, like Export Development Canada's self-sufficient export insurance, the federal precedent: capital held, premiums earned, claims paid from the reserve. The accounting treatment is for Finance to confirm; the model's point is that it is insurance, not spending.","fr":"Elle est structurée comme une provision, à l'image de l'assurance à l'exportation autosuffisante d'Exportation et développement Canada, le précédent fédéral : capital détenu, primes perçues, réclamations payées à même la réserve. Le traitement comptable revient à Finances; l'essentiel du modèle est qu'il s'agit d'une assurance, pas d'une dépense."}},{"g":"fin","c":"policy","q":{"en":"Why not simply expand tax credits?","fr":"Pourquoi ne pas simplement élargir les crédits d'impôt?"},"a":{"en":"Tax credits fund production capacity, which is not the problem; Canada already has it. They do nothing for ownership, market access or deal qualification, and they subsidize service work on foreign IP just as readily as Canadian franchises. The engine targets what tax credits cannot reach: the contract and the asset.","fr":"Les crédits d'impôt financent la capacité de production, qui n'est pas le problème; le Canada l'a déjà. Ils ne font rien pour la propriété, l'accès aux marchés ou la qualification des occasions, et ils subventionnent aussi bien le travail à forfait sur des PI étrangères que les franchises canadiennes. Le moteur vise ce que les crédits n'atteignent pas : le contrat et l'actif."}},{"g":"fin","c":"fund","q":{"en":"Is $250M a year of private capital realistic?","fr":"250 M$ par année de capital privé, est-ce réaliste?"},"a":{"en":"The model ramps: $50M deployed in Year 1, $150M cumulative in Year 2, $800M by Year 5. The sectors grow 12–25% a year, capital is protected 60–100% by tier, and the target net IRR is 8–15%. Every comparable scheme where the state insured rather than invested drew institutional money: completion bonds, the UK Growth Guarantee Scheme, the US Treasury Asset Guarantee Program.","fr":"Le modèle monte en puissance : 50 M$ déployés en An 1, 150 M$ cumulés en An 2, 800 M$ en An 5. Les secteurs croissent de 12 à 25 % par année, le capital est protégé de 60 à 100 % selon le palier, et le TRI net cible est de 8 à 15 %. Chaque modèle comparable où l'État a assuré plutôt qu'investi a attiré l'argent institutionnel : completion bonds, UK Growth Guarantee Scheme, Asset Guarantee Program du Trésor américain."}},{"g":"fin","c":"sages","q":{"en":"Isn't the government picking winners?","fr":"Le gouvernement ne choisit-il pas des gagnants?"},"a":{"en":"The government never picks a project and never invests in one. Three roles are deliberately separated: the market chooses, a professional fund manager with 2–5% of their own money allocates, and the Conseil des Sages validates. No single actor both picks projects and holds the public's money.","fr":"Le gouvernement ne choisit jamais un projet et n'y investit jamais. Trois rôles sont volontairement séparés : le marché choisit, un gestionnaire de fonds professionnel qui engage 2 à 5 % de son propre argent alloue, et le Comité des Sages valide. Aucun acteur ne choisit les projets et ne détient l'argent public à la fois."}},{"g":"fin","c":"reserve","q":{"en":"Why not do this through EDC or BDC?","fr":"Pourquoi ne pas passer par EDC ou la BDC?"},"a":{"en":"EDC insures receivables and political risk after a contract exists. The gap is before the contract, in development and qualification, and on the capital side, in holding the IP. EDC is the model's precedent and a natural administrator for the reserve; the engine is the missing front end.","fr":"EDC assure les créances et le risque politique une fois le contrat signé. Le vide se situe avant le contrat, dans le développement et la qualification, et du côté du capital, dans la détention de la PI. EDC est le précédent du modèle et un administrateur naturel de la réserve; le moteur est la porte d'entrée manquante."}},{"g":"agn","c":"policy","q":{"en":"Telefilm and the Canada Media Fund: does this compete with us?","fr":"Téléfilm et le Fonds des médias : est-ce en concurrence avec nous?"},"a":{"en":"No. Different content (commercial export, not cultural), different instrument (insurance and private capital, not grants) and different stage (qualifying international deals and holding IP, not financing domestic production). A producer can combine both: cultural support for the work, the engine for the export contract.","fr":"Non. Contenu différent (exportation commerciale, pas culturel), instrument différent (assurance et capital privé, pas subventions) et étape différente (qualifier des ententes internationales et détenir la PI, pas financer la production nationale). Un producteur peut combiner les deux : le soutien culturel pour l'œuvre, le moteur pour le contrat d'exportation."}},{"g":"agn","c":"office","q":{"en":"Trade Commissioner Service: aren't your offices duplicating ours?","fr":"Service des délégués commerciaux : vos bureaux ne font-ils pas double emploi?"},"a":{"en":"Producers, not diplomats. Trade commissioners open doors; the office is led by someone who has delivered projects abroad and can tell in ten minutes whether an opportunity is real, then qualifies, quantifies and puts the Canadian company in the room. In the federal version the offices share space with Global Affairs missions and the TCS, which is also how the $30M ceiling gets optimized.","fr":"Des producteurs, pas des diplomates. Les délégués commerciaux ouvrent des portes; le bureau est dirigé par quelqu'un qui a livré des projets à l'étranger et peut dire en dix minutes si une occasion est réelle, puis la qualifie, la quantifie et met l'entreprise canadienne en contact. Dans la version fédérale, les bureaux partagent les locaux des missions d'Affaires mondiales et du SDC, ce qui est aussi la façon d'optimiser le plafond de 30 M$."}},{"g":"agn","c":"reserve","q":{"en":"EDC: where does your protection stop and ours start?","fr":"EDC : où s'arrête votre protection et où commence la nôtre?"},"a":{"en":"The reserve protects the fund's capital in the project, by risk tier. EDC protects the exporter's receivables and covers political risk once the contract is signed. They stack rather than overlap, and a financed project would normally carry both.","fr":"La réserve protège le capital du fonds dans le projet, selon le palier de risque. EDC protège les créances de l'exportateur et couvre le risque politique une fois le contrat signé. Ils s'empilent plutôt qu'ils ne se chevauchent, et un projet financé porterait normalement les deux."}},{"g":"agn","c":"policy","q":{"en":"SODEC and provincial agencies: is this a federal intrusion?","fr":"SODEC et organismes provinciaux : est-ce une intrusion fédérale?"},"a":{"en":"The model was built as a Quebec proof of concept and can run at provincial scale. The federal version layers on top: the same producers, offices and reserve serve companies from every province, and provincial cultural agencies keep their mandate untouched.","fr":"Le modèle a été bâti comme preuve de concept québécoise et peut fonctionner à l'échelle provinciale. La version fédérale s'y superpose : les mêmes producteurs, bureaux et réserve servent les entreprises de toutes les provinces, et les organismes culturels provinciaux gardent leur mandat intact."}},{"g":"inv","c":"reserve","q":{"en":"What exactly is protected, capital or return?","fr":"Qu'est-ce qui est protégé au juste, le capital ou le rendement?"},"a":{"en":"Capital, by risk tier: 100% on low-risk projects (a pre-sold series, the expansion of a proven immersive show), 80% on medium (an AA game, a circus tour), 60% on higher risk (a first game, innovative VR). About 88% weighted on a balanced portfolio. The return comes from an insured yield funded by about 60% of the premiums, plus project upside.","fr":"Le capital, selon le palier de risque : 100 % sur les projets à faible risque (une série prévendue, l'expansion d'un spectacle immersif éprouvé), 80 % sur le risque moyen (un jeu AA, une tournée de cirque), 60 % sur le risque élevé (un premier jeu, de la RV innovante). Environ 88 % en moyenne pondérée. Le rendement vient d'un rendement assuré financé par environ 60 % des primes, plus la plus-value des projets."}},{"g":"inv","c":"fund","q":{"en":"Who pays the premium, and how much?","fr":"Qui paie la prime, et combien?"},"a":{"en":"The financed project pays it: 3–5% of capital deployed on low risk, 5–8% on medium, 8–12% on higher. The fund splits it, roughly 60% to the investors' insured yield and 40% ceded to the sovereign reserve.","fr":"Le projet financé la paie : 3 à 5 % du capital déployé à faible risque, 5 à 8 % au risque moyen, 8 à 12 % au risque élevé. Le fonds la répartit, environ 60 % vers le rendement assuré des investisseurs et 40 % cédés à la réserve souveraine."}},{"g":"inv","c":"fund","q":{"en":"How is an 8–15% net IRR credible in this sector?","fr":"Comment un TRI net de 8 à 15 % est-il crédible dans ce secteur?"},"a":{"en":"Three things stack: sectors growing 12–25% a year, a floor set by the insured yield and the protected capital, and commercial discipline imposed by the Recoupment Standard so that revenue actually reaches the investor instead of disappearing in distribution accounting. The upside comes from royalties, licences and equity on Canadian-held IP.","fr":"Trois éléments s'additionnent : des secteurs en croissance de 12 à 25 % par année, un plancher fixé par le rendement assuré et le capital protégé, et une discipline commerciale imposée par le Standard de recoupment pour que les revenus parviennent réellement à l'investisseur au lieu de disparaître dans la comptabilité de distribution. La plus-value vient des royautés, licences et participations sur des PI canadiennes."}},{"g":"inv","c":"fund","q":{"en":"What is the fund's term and liquidity?","fr":"Quelle est la durée du fonds et sa liquidité?"},"a":{"en":"Either an evergreen structure with semi-annual redemptions or a closed fund of 7 to 10 years. Instruments are participating loans, quasi-equity, royalties on IP, mezzanine debt and minority equity.","fr":"Soit une structure evergreen avec rachats semestriels, soit un fonds fermé de 7 à 10 ans. Les instruments sont les prêts participatifs, la quasi-équité, les royautés sur la PI, la dette mezzanine et l'équité minoritaire."}},{"g":"inv","c":"fund","q":{"en":"How is the manager chosen, and what is their exposure?","fr":"Comment le gestionnaire est-il choisi, et quelle est son exposition?"},"a":{"en":"By public request for proposals, with a 2–5% co-investment requirement. The manager has skin in the game and holds capital allocation; the Conseil validates opportunities but never allocates.","fr":"Par appel d'offres public, avec une exigence de co-investissement de 2 à 5 %. Le gestionnaire engage son propre argent et détient l'allocation du capital; le Comité valide les occasions mais n'alloue jamais."}},{"g":"inv","c":"office","q":{"en":"Where does the deal flow come from?","fr":"D'où vient le flux d'occasions?"},"a":{"en":"From the executive production office: 40–50 experienced producers in market producing 80–120 qualified opportunities a year, each validated by a Sage through their network within 48 hours and scored on export, viability, IP and capacity before it reaches the fund.","fr":"Du bureau de production exécutive : 40 à 50 producteurs d'expérience sur le terrain produisant 80 à 120 occasions qualifiées par année, chacune validée par un Sage par son réseau en 48 h et notée sur l'exportation, la viabilité, la PI et la capacité avant d'atteindre le fonds."}},{"g":"inv","c":"fund","q":{"en":"What about currency and political risk in the Gulf or Asia?","fr":"Et le risque de change et le risque politique dans le Golfe ou en Asie?"},"a":{"en":"Those sit with the exporter's contract and are the territory of EDC's existing products, which stack with the reserve's capital protection. The Recoupment Standard also requires contracts to separate development, exploitation and IP licence so one dispute does not sink the whole deal.","fr":"Ils relèvent du contrat de l'exportateur et des produits existants d'EDC, qui s'empilent avec la protection du capital de la réserve. Le Standard de recoupment exige aussi que les contrats séparent développement, exploitation et licence de PI pour qu'un litige ne coule pas toute l'entente."}},{"g":"prod","c":"producers","q":{"en":"Who qualifies?","fr":"Qui est admissible?"},"a":{"en":"Commercial creative content built for international markets: film and TV co-production, video games, touring live productions, immersive and experiential, audio and music, event technology. The four-question test decides: mainly domestic audience or national identity as purpose means cultural; export over 50% of revenue and sellable as-is in 10+ countries means eligible.","fr":"Du contenu créatif commercial conçu pour les marchés internationaux : coproduction ciné/télé, jeux vidéo, productions en tournée, immersif et expérientiel, audio et musique, technologie événementielle. Le test en quatre questions tranche : public surtout national ou identité nationale comme objet, c'est culturel; exportation supérieure à 50 % des revenus et vendable tel quel dans 10 pays et plus, c'est admissible."}},{"g":"prod","c":"producers","q":{"en":"Do I have to own the IP outright?","fr":"Dois-je détenir la PI en pleine propriété?"},"a":{"en":"No. The headline is 'IP stays in Canada'; the rule is that a recurring Canadian revenue right survives the contract: ownership, co-ownership, a licence, or a royalty on the work. A client can own the show and still pay a royalty per performance. Pure buy-out work with nothing flowing back qualifies for the Export Advance and qualification support only.","fr":"Non. Le titre est « la PI reste au Canada »; la règle est qu'un droit de revenu récurrent demeure au Canada après le contrat : propriété, copropriété, licence ou royauté sur l'œuvre. Un client peut détenir le spectacle et verser quand même une royauté par représentation. Le rachat complet sans retour n'a droit qu'à l'Avance Export et au soutien à la qualification."}},{"g":"prod","c":"office","q":{"en":"What does qualification cost me?","fr":"Combien me coûte la qualification?"},"a":{"en":"Nothing; it is paid by the office's operating budget. Once an opportunity is qualified, the Export Advance covers $25K–150K for the concept, the trips and the negotiation. It is repaid when the contract signs and written off as an accepted loss if a positively qualified opportunity falls through.","fr":"Rien; elle est financée par le budget de fonctionnement du bureau. Une fois l'occasion qualifiée, l'Avance Export couvre de 25 à 150 K$ pour le concept, les voyages et la négociation. Elle est remboursée à la signature du contrat et convertie en perte acceptée si une occasion qualifiée positivement tombe."}},{"g":"prod","c":"fund","q":{"en":"Will the fund take control of my company?","fr":"Le fonds prendra-t-il le contrôle de mon entreprise?"},"a":{"en":"No. The instruments are participating loans, quasi-equity, royalties, mezzanine debt and minority equity. The fund finances the export project; it does not run the studio.","fr":"Non. Les instruments sont les prêts participatifs, la quasi-équité, les royautés, la dette mezzanine et l'équité minoritaire. Le fonds finance le projet d'exportation; il ne dirige pas le studio."}},{"g":"prod","c":"standard","q":{"en":"Do the ten clauses of the Recoupment Standard make my bid less competitive?","fr":"Les dix clauses du Standard de recoupment rendent-elles mon offre moins compétitive?"},"a":{"en":"They are a guild floor: when every Canadian producer carries the same clauses, foreign counterparties learn to respect them, and the asymmetry each SME faced alone becomes a collective advantage. The office backs you in the negotiation, and the clauses are a condition only for projects financed by the fund.","fr":"C'est un plancher de guilde : quand chaque producteur canadien porte les mêmes clauses, les contreparties étrangères apprennent à les respecter, et l'asymétrie que chaque PME affrontait seule devient un avantage collectif. Le bureau vous appuie dans la négociation, et les clauses ne sont une condition que pour les projets financés par le fonds."}},{"g":"prod","c":"standard","q":{"en":"Guilds and unions: does this weaken creators' protections?","fr":"Guildes et syndicats : cela affaiblit-il la protection des créateurs?"},"a":{"en":"It strengthens them. Cultural programs and collective agreements are untouched, and the Recoupment Standard is written so that revenue actually reaches the producer, which is what makes residuals and royalty cascades to designers, composers and performers real rather than theoretical.","fr":"Il la renforce. Les programmes culturels et les conventions collectives restent intacts, et le Standard de recoupment est écrit pour que les revenus parviennent réellement au producteur, ce qui rend les résiduels et les cascades de royautés vers les concepteurs, compositeurs et interprètes réels plutôt que théoriques."}},{"g":"prod","c":"producers","q":{"en":"What happens to my tax credits?","fr":"Qu'advient-il de mes crédits d'impôt?"},"a":{"en":"They stay entirely with you. They are not a source of the fund; they are deducted from the capital request before scoring, so the fund finances only what the credits do not.","fr":"Ils restent intégralement à vous. Ils ne sont pas une source du fonds; ils sont déduits de la demande de capital avant le scoring, de sorte que le fonds ne finance que ce que les crédits ne couvrent pas."}},{"g":"prod","c":"producers","q":{"en":"Can a large company like Cirque or Ubisoft use the engine?","fr":"Une grande entreprise comme le Cirque ou Ubisoft peut-elle utiliser le moteur?"},"a":{"en":"The engine is designed for SMEs, the companies that lose $100,000 on an unqualified lead and cannot carry a franchise through development. The IP condition applies to everyone.","fr":"Le moteur est conçu pour les PME, celles qui perdent 100 000 $ sur une occasion non qualifiée et ne peuvent pas porter une franchise jusqu'au développement. La condition PI s'applique à tous."}},{"g":"prod","c":"office","q":{"en":"Does the office take a cut of my deal?","fr":"Le bureau prend-il une part de mon entente?"},"a":{"en":"The offices are seeded for 24 months and then become self-supporting by monetizing the deals they help close. The qualification itself never costs the company anything.","fr":"Les bureaux sont amorcés pendant 24 mois, puis deviennent autoportants en monétisant les ententes qu'ils aident à conclure. La qualification elle-même ne coûte jamais rien à l'entreprise."}},{"g":"prod","c":"sages","q":{"en":"I have a project, not an IP. How does the Conseil help?","fr":"J'ai un projet, pas une PI. Comment le Comité m'aide-t-il?"},"a":{"en":"Part of the Conseil's mandate is to find the IP inside a qualified opportunity, layer by layer: what can be patented (a mechanism, an automation), what is industrial design (the look of a unit), what is copyright (characters, costumes, story, music), what is a trademark, what is know-how. Then it steers the contract so those layers are separated and kept or licensed rather than swept into a buy-out. A producer sees a parade; a Sage sees five rights.","fr":"Une partie du mandat du Comité est de trouver la PI dans une occasion qualifiée, couche par couche : ce qui se brevète (un mécanisme, une automatisation), ce qui est un dessin industriel (l'allure d'une unité), ce qui est du droit d'auteur (personnages, costumes, récit, musique), ce qui est une marque, ce qui est du savoir-faire. Puis il oriente le contrat pour que ces couches soient séparées et conservées ou concédées sous licence plutôt qu'emportées dans un rachat. Un producteur voit une parade; un Sage voit cinq droits."}},{"g":"gov","c":"sages","q":{"en":"How do you manage conflicts of interest on the Conseil des Sages?","fr":"Comment gérez-vous les conflits d'intérêts au Comité des Sages?"},"a":{"en":"The Conseil validates; it never allocates capital, so no Sage can steer money to a project. Selection is on commercial and cultural merit, at arm's length from politics, and the fund manager's own capital is at risk on every allocation.","fr":"Le Comité valide; il n'alloue jamais de capital, donc aucun Sage ne peut diriger de l'argent vers un projet. La sélection se fait sur le mérite commercial et culturel, à distance du politique, et le capital propre du gestionnaire est en jeu à chaque allocation."}},{"g":"gov","c":"office","q":{"en":"Who decides eligibility, and against what grid?","fr":"Qui décide de l'admissibilité, et selon quelle grille?"},"a":{"en":"An eligibility committee at head office, on a published grid: export potential, viability, IP position and delivery capacity. The six-step pipeline runs opportunity, qualification, quantification, summary, scoring, decision, the same for PULL and PUSH.","fr":"Un comité d'admissibilité au siège, selon une grille publiée : potentiel d'exportation, viabilité, position PI et capacité de livraison. Le pipeline en six étapes enchaîne occasion, qualification, quantification, sommaire, scoring, décision, le même en PULL et en PUSH."}},{"g":"gov","c":"policy","q":{"en":"Crown corporation, program, or unit inside an existing agency?","fr":"Société d'État, programme, ou unité dans un organisme existant?"},"a":{"en":"The Quebec model is a société d'État. At the federal level the engine is deliberately presented as a mechanism, not an institution: what matters is the three separated roles, the reserve and the offices, and those can live in more than one vehicle.","fr":"Le modèle québécois est une société d'État. Au fédéral, le moteur est volontairement présenté comme un mécanisme, pas une institution : ce qui compte, ce sont les trois rôles séparés, la réserve et les bureaux, et ils peuvent loger dans plus d'un véhicule."}},{"g":"gov","c":"reserve","q":{"en":"Does this run into trade rules on subsidies (CUSMA, WTO)?","fr":"Cela heurte-t-il les règles commerciales sur les subventions (ACEUM, OMC)?"},"a":{"en":"The state insures at a priced premium; it does not grant, and the capital is private. Precedents with the same structure operate in the UK and the US.","fr":"L'État assure moyennant une prime tarifée; il ne subventionne pas, et le capital est privé. Des précédents de même structure fonctionnent au Royaume-Uni et aux États-Unis."}},{"g":"gov","c":"outcomes","q":{"en":"What are the success metrics, and when is it reviewed?","fr":"Quels sont les indicateurs de succès, et quand est-il révisé?"},"a":{"en":"Five-year targets at proof-of-concept scale: exports from 3.5 to 5.5 G$, private capital deployed $800M, jobs up 40%, Canadian-held IP from 30 to 45% of output, reserve from $50M to about $69M with net cost trending to zero.","fr":"Cibles sur cinq ans à l'échelle de la preuve de concept : exportations de 3,5 à 5,5 G$, 800 M$ de capital privé déployé, emplois en hausse de 40 %, PI canadienne de 30 à 45 % de la production, réserve de 50 M$ à environ 69 M$ avec un coût net tendant vers zéro."}},{"g":"prov","c":"outcomes","q":{"en":"Is this a Quebec project in federal clothing?","fr":"Est-ce un projet québécois déguisé en projet fédéral?"},"a":{"en":"The proof of concept is Quebec-scale because that is where the model was built and validated. Scaled federally, across all provinces and the full breadth of creative content, the figures grow accordingly.","fr":"La preuve de concept est à l'échelle du Québec parce que c'est là que le modèle a été bâti et validé. À l'échelle fédérale, toutes provinces et tout le contenu créatif confondus, les chiffres grandissent en conséquence."}},{"g":"prov","c":"policy","q":{"en":"Culture is a provincial jurisdiction. Where does the federal role stop?","fr":"La culture est de compétence provinciale. Où s'arrête le rôle fédéral?"},"a":{"en":"The engine is export and industrial policy, not cultural policy. It separates commercial creative export from cultural subsidy precisely so that provincial cultural mandates stay untouched.","fr":"Le moteur est une politique d'exportation et industrielle, pas une politique culturelle. Il sépare l'exportation créative commerciale de la subvention culturelle précisément pour que les mandats culturels provinciaux restent intacts."}},{"g":"prov","c":"policy","q":{"en":"You are also pitching this to the PLQ. Which is it?","fr":"Vous le proposez aussi au PLQ. Alors, lequel?"},"a":{"en":"The same model at two levels. A province can run it as a proof of concept; the federal version scales it and adds shared infrastructure abroad. Neither excludes the other.","fr":"Le même modèle à deux niveaux. Une province peut le faire fonctionner comme preuve de concept; la version fédérale le met à l'échelle et ajoute l'infrastructure partagée à l'étranger. Aucun n'exclut l'autre."}},{"g":"pub","c":"policy","q":{"en":"Isn't this corporate welfare for 'Hollywood North'?","fr":"N'est-ce pas de l'aide aux entreprises pour « Hollywood North »?"},"a":{"en":"It is the opposite. Hollywood North is the service model: Canadian talent on foreign-owned IP, which is what the engine stops rewarding. No public money is invested in any project; the capital is private, the condition is a lasting Canadian right to the IP, and the only public cost is a modest operating budget and a self-financing insurance reserve.","fr":"C'est le contraire. Hollywood North, c'est le modèle de services : du talent canadien sur des PI étrangères, exactement ce que le moteur cesse de récompenser. Aucun argent public n'est investi dans un projet; le capital est privé, la condition est un droit canadien durable sur la PI, et le seul coût public est un budget de fonctionnement modeste et une réserve d'assurance autofinancée."}},{"g":"pub","c":"reserve","q":{"en":"Why should taxpayers insure private investors?","fr":"Pourquoi les contribuables devraient-ils assurer des investisseurs privés?"},"a":{"en":"Because it is the cheapest way to get $800M of private money into a sector where Canada has a demonstrated comparative advantage, and it returns: the reserve grows on premiums and the net cost trends to zero. Every model where the state insured rather than invested has been neutral or positive for taxpayers.","fr":"Parce que c'est le moyen le moins coûteux d'attirer 800 M$ d'argent privé dans un secteur où le Canada détient un avantage comparatif démontré, et que ça rapporte : la réserve croît au fil des primes et le coût net tend vers zéro. Chaque modèle où l'État a assuré plutôt qu'investi a été neutre ou positif pour le contribuable."}},{"g":"pub","c":"outcomes","q":{"en":"What is the proof this works?","fr":"Quelle est la preuve que ça fonctionne?"},"a":{"en":"Canada's biggest creative export successes share one trait: a Canadian company kept the IP. PAW Patrol, $15B+ in retail sales in 170+ countries. Dead by Daylight, 70M players, a studio that grew from 300 to 1,260 employees. Cirque du Soleil, 100M+ spectators. The counter-example is just as Canadian: Quebec VFX went from 8,037 jobs to 2,603 when the service work moved.","fr":"Les plus grands succès d'exportation créative du Canada ont un point commun : une entreprise canadienne a gardé la PI. PAW Patrol, plus de 15 G$ de ventes au détail dans 170+ pays. Dead by Daylight, 70 M de joueurs, un studio passé de 300 à 1 260 employés. Cirque du Soleil, plus de 100 M de spectateurs. Le contre-exemple est tout aussi canadien : les VFX québécois sont passés de 8 037 à 2 603 emplois quand le travail à forfait est parti."}},{"g":"pub","c":"reserve","q":{"en":"What happens if it fails?","fr":"Que se passe-t-il en cas d'échec?"},"a":{"en":"The exposure is bounded by design: the reserve pays only what it holds, offices are seeded for 24 months and must become self-supporting, and the fund is private money managed by someone with their own capital at risk.","fr":"L'exposition est bornée par conception : la réserve ne paie que ce qu'elle détient, les bureaux sont amorcés pendant 24 mois et doivent devenir autoportants, et le fonds est de l'argent privé géré par quelqu'un qui engage son propre capital."}},{"g":"intl","c":"standard","q":{"en":"Foreign buyer: does this make Canadian vendors harder to contract with?","fr":"Acheteur étranger : cela rend-il les fournisseurs canadiens plus difficiles à contracter?"},"a":{"en":"It makes them safer to contract with. The Standard is a transparent floor on accounting, not on price: strict gross receipts, capped fees, audit rights, no cross-collateralization. Serious partners already accept these terms. And a vendor backed by qualified financing and a producer in your market is a vendor who delivers.","fr":"Cela les rend plus sûrs à contracter. Le Standard est un plancher transparent sur la comptabilité, pas sur le prix : recettes brutes strictes, frais plafonnés, droits d'audit, pas de cross-collateralization. Les partenaires sérieux acceptent déjà ces conditions. Et un fournisseur appuyé par un financement qualifié et un producteur sur votre marché est un fournisseur qui livre."}},{"g":"intl","c":"customers","q":{"en":"Does the Canadian government become a party to my contract?","fr":"Le gouvernement canadien devient-il partie à mon contrat?"},"a":{"en":"No. The contract is between you and the Canadian company. The reserve insures the fund's capital behind the scenes; it has no role in your agreement.","fr":"Non. Le contrat est entre vous et l'entreprise canadienne. La réserve assure le capital du fonds en coulisse; elle n'a aucun rôle dans votre entente."}},{"g":"intl","c":"outcomes","q":{"en":"Doesn't AI make all of this obsolete?","fr":"L'IA ne rend-elle pas tout cela obsolète?"},"a":{"en":"AI is why it matters. It eliminates tasks, not industries: a fifteen-person studio can now produce at a quality once reserved for the majors, which shifts value toward creative direction, IP ownership and market development, exactly what the engine finances and sells. Competing jurisdictions are already financing AI adoption; the temporary VFX recovery line ($3M a year for three years) accelerates the pivot from effects factory to IP creator.","fr":"L'IA est la raison même de son importance. Elle élimine des tâches, pas des industries : un studio de quinze personnes peut maintenant produire à une qualité autrefois réservée aux majors, ce qui déplace la valeur vers la direction créative, la propriété de la PI et le développement de marchés, exactement ce que le moteur finance et vend. Les juridictions concurrentes financent déjà l'adoption de l'IA; le poste temporaire de redressement des VFX (3 M$ par année pendant trois ans) accélère le pivot d'usine à effets vers créateur de PI."}}];
+// Private notes ("to decide") and the opportunity portfolio are not in this build.
+// They are loaded from /api/prep after the admin password (Shift+P).
+// ---------- Portfolio v2: opportunity capture (private, prep mode) ----------
+// Seven blocks: origin · customer · Canadian company · project · where is the IP · money · assessment (+ counterfactual, lessons).
+// Empty string = not captured yet (rendered as "to capture").
+const PF_SECTORS = {live:B("Touring / resident shows","Spectacles"), film:B("Film & TV co-production","Coproduction ciné/télé"), game:B("Video games","Jeux vidéo"), imm:B("Immersive & experiential","Immersif et expérientiel"), evt:B("Event technology","Technologie événementielle"), edu:B("Training / know-how (service)","Formation / savoir-faire (service)"), fest:B("Events & festivals","Événements et festivals")};
+const PF_IPNAME = {buyout:B("Buy-out","Rachat complet"), royalty:B("Buy-out + royalties","Rachat + royautés"), shared:B("Shared IP","PI partagée"), licence:B("Licence","Licence"), own:B("Full ownership","Propriété complète"), licin:B("Foreign IP licensed in","PI étrangère sous licence")};
+const PF_STAGES = ["opportunity","qualified","quantified","summary","scored","decision","contract","delivered","lost"];
+const PF_STAGENAME = {opportunity:B("Opportunity","Occasion"), qualified:B("Qualified","Qualifiée"), quantified:B("Quantified","Quantifiée"), summary:B("Summary","Sommaire"), scored:B("Scored","Notée"), decision:B("Decision","Décision"), contract:B("Contract","Contrat"), delivered:B("Delivered","Livrée"), lost:B("Lost / stopped","Perdue / arrêtée")};
+const PF_LAYERS = ["Patent","Industrial design","Copyright","Trademark","Trade secret / know-how","Format / contract rights"];
+const IPROW = (layer, asset, ownerNow, ownerAfter, protectable, registered, territory) => ({layer, asset, ownerNow, ownerAfter, protectable, registered, territory});
+
+let PORTFOLIO = [];
+let PREP_LOADED = false;
+// ---------- rendering ----------
+const W=1200, Hh=760;
+const viewport=document.getElementById("viewport"), world=document.getElementById("world"), flowsSvg=document.getElementById("flows"), nodesEl=document.getElementById("nodes");
+const stageEl=document.getElementById("stagecard"), stageInner=document.getElementById("stageinner"), crumbsEl=document.getElementById("crumbs");
+const NS="http://www.w3.org/2000/svg";
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function el(n,attrs,parent){const e=document.createElementNS(NS,n);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+let state = {node:null, facet:null};
+let tour = {on:false, i:0, playing:false, timer:null};
+
+function renderFlows(){
+  flowsSvg.innerHTML="";
+  const defs=el("defs",{},flowsSvg);
+  for (const [id,c] of [["pub","#E3A63B"],["priv","#4FB8AD"],["gov","rgba(243,237,226,.7)"]]){
+    const m=el("marker",{id:"ar-"+id,viewBox:"0 0 10 10",refX:"9",refY:"5",markerWidth:"7",markerHeight:"7",orient:"auto-start-reverse"},defs);
+    el("path",{d:"M0,0 L10,5 L0,10 z",fill:c},m);
+  }
+  FLOWS.forEach((f,i)=>{
+    if(!f.path) return;
+    const key=f.from+">"+f.to, pid="fp"+i;
+    const p=el("path",{id:pid,d:f.path,class:"flow "+f.kind+(reduce?"":" anim"),"marker-end":"url(#ar-"+f.kind+")","data-key":key},flowsSvg);
+    if(!reduce){
+      // money particles: count and speed scale with path length
+      const len=p.getTotalLength(); const n=Math.max(2,Math.round(len/70)); const dur=(len/55).toFixed(2);
+      for(let k=0;k<n;k++){
+        const c=el("circle",{r:3,class:"dot "+f.kind,"data-key":key},flowsSvg);
+        const am=el("animateMotion",{dur:dur+"s",begin:(-(dur*k/n)).toFixed(2)+"s",repeatCount:"indefinite",rotate:"auto"},c);
+        const mp=el("mpath",{},am); mp.setAttribute("href","#"+pid); mp.setAttributeNS("http://www.w3.org/1999/xlink","xlink:href","#"+pid);
+      }
+    }
+    const lab=T(f.l); if(!lab) return;
+    el("rect",{x:f.lx-4,y:f.ly-11,width:lab.length*6.4+12,height:16,rx:4,class:"flabel-bg","data-key":key},flowsSvg);
+    const t=el("text",{x:f.lx+2,y:f.ly+1,class:"flabel "+f.kind,"data-key":key},flowsSvg); t.textContent=lab;
+  });
+}
+// light a set of flow keys (or a node's connected flows); null clears
+function highlight(keys){
+  if(!keys||!keys.length){ flowsSvg.classList.remove("hl"); flowsSvg.querySelectorAll(".lit").forEach(e=>e.classList.remove("lit")); return; }
+  flowsSvg.classList.add("hl");
+  flowsSvg.querySelectorAll("[data-key]").forEach(e=>e.classList.toggle("lit",keys.includes(e.dataset.key)));
+}
+const flowsOf = id => FLOWS.filter(f=>f.path&&(f.from===id||f.to===id)).map(f=>f.from+">"+f.to);
+let firstRender=true;
+function renderNodes(){
+  nodesEl.innerHTML="";
+  NODES.forEach((n,i)=>{
+    const d=document.createElement("div");
+    d.className="node "+n.kind+(n.small?" small":"")+(state.node===n.id?" hot":"")+(tour.on&&TOUR[tour.i].node===n.id?" focus":"")+(firstRender&&!reduce?" enter":"");
+    d.style.cssText=`left:${n.x}px;top:${n.y}px;width:${n.w}px;height:${n.h}px;animation-delay:${.08*i}s`;
+    d.addEventListener("mouseenter",()=>{ if(!tour.on&&!state.node) highlight(flowsOf(n.id)); });
+    d.addEventListener("mouseleave",()=>{ if(!tour.on&&!state.node) highlight(null); });
+    d.tabIndex=0; d.setAttribute("role","button"); d.dataset.id=n.id;
+    d.innerHTML = n.small
+      ? `<div class="t">${esc(T(n.t))}</div><div class="s">${esc(T(n.s))}</div>`
+      : `<div class="tag">${esc(T(n.tag))}</div><div class="t">${esc(T(n.t))}</div><div class="s">${esc(T(n.s))}</div><div class="k">${esc(T(n.k))}</div>`;
+    d.addEventListener("click",()=>openNode(n.id));
+    d.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openNode(n.id);}});
+    nodesEl.appendChild(d);
+  });
+  firstRender=false;
+}
+
+// ---------- camera ----------
+let cam={s:1,tx:0,ty:0};
+function fitCamera(){
+  const vw=viewport.clientWidth, vh=viewport.clientHeight;
+  const s=Math.min(vw/W, vh/Hh);
+  cam={s, tx:(vw-W*s)/2, ty:(vh-Hh*s)/2};
+  applyCam();
+}
+function flyTo(n){
+  const vw=viewport.clientWidth, vh=viewport.clientHeight;
+  const fit=Math.min(vw/W, vh/Hh);
+  const s=fit*1.55;
+  const cx=n.x+n.w/2, cy=n.y+n.h/2;
+  cam={s, tx:vw/2-cx*s, ty:vh/2-cy*s};
+  applyCam();
+}
+// tour framing: moderate zoom, node sits in the upper 40% so the caption never covers it
+function flyToTour(n){
+  const vw=viewport.clientWidth, vh=viewport.clientHeight;
+  const fit=Math.min(vw/W, vh/Hh);
+  const s=fit*1.28;
+  const cx=n.x+n.w/2, cy=n.y+n.h/2;
+  const capH=Math.min(240, vh*.42);
+  cam={s, tx:vw/2-cx*s, ty:(vh-capH)/2-cy*s};
+  applyCam();
+}
+function applyCam(){ world.style.transform=`translate(${cam.tx}px,${cam.ty}px) scale(${cam.s})`; }
+function nodeScreenRect(n){ return {left:cam.tx+n.x*cam.s, top:cam.ty+n.y*cam.s, width:n.w*cam.s, height:n.h*cam.s}; }
+function stageTargetRect(){
+  const vw=viewport.clientWidth, vh=viewport.clientHeight;
+  const w=Math.min(vw-16, 1120), h=Math.min(vh-16, 760);
+  return {left:(vw-w)/2, top:(vh-h)/2, width:w, height:h};
+}
+function setRect(r){ stageEl.style.left=r.left+"px"; stageEl.style.top=r.top+"px"; stageEl.style.width=r.width+"px"; stageEl.style.height=r.height+"px"; }
+
+// ---------- levels ----------
+function openNode(id){
+  if(pfState.on) closePF();
+  if(qaState.on) closeQA();
+  if(tour.on) pauseTour();
+  highlight(null);
+  const n=NODES.find(x=>x.id===id); state={node:id,facet:null};
+  // start the card at the node's current screen rect, then fly
+  const from=nodeScreenRect(n);
+  stageEl.className="stage "+n.kind; stageEl.hidden=false; setRect(from);
+  stageEl.style.opacity="1";
+  renderStage(n);
+  nodesEl.querySelectorAll(".node").forEach(d=>d.classList.toggle("hot",d.dataset.id===id));
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    world.classList.add("away"); flyTo(n); setRect(stageTargetRect()); stageEl.classList.add("open");
+  }));
+  renderCrumbs();
+}
+function closeAll(){
+  const n=NODES.find(x=>x.id===state.node); if(!n){return;}
+  state={node:null,facet:null};
+  stageEl.classList.remove("open");
+  world.classList.remove("away");
+  if(tour.on){ showStep(tour.i,false); } else fitCamera();
+  nodesEl.querySelectorAll(".node").forEach(d=>d.classList.remove("hot"));
+  // shrink back to the node's (new) rect, then hide
+  requestAnimationFrame(()=>{ setRect(nodeScreenRect(n)); stageEl.style.opacity="0"; });
+  setTimeout(()=>{ stageEl.hidden=true; stageEl.style.opacity="1"; }, reduce?0:900);
+  renderCrumbs();
+}
+function renderStage(n){
+  stageInner.innerHTML = `
+    <div class="shead">
+      <div>
+        <p class="tag">${esc(T(n.tag))||"&nbsp;"}</p>
+        <h2>${esc(T(n.t))}</h2>
+        <div class="k">${esc(T(n.k))||esc(T(n.s))}</div>
+      </div>
+      <div class="sactions">
+        <button class="ibtn" type="button" id="backbtn" hidden>← ${UI[LANG].back}</button>
+        <button class="ibtn" type="button" onclick="openQAFor('${n.id}')">${UI[LANG].qa}</button>
+        <button class="ibtn round" type="button" aria-label="${UI[LANG].close}" onclick="closeAll()">×</button>
+      </div>
+    </div>
+    <div class="sbody" id="sbody"></div>`;
+  document.getElementById("backbtn").addEventListener("click",()=>backToTiles());
+  renderTiles(n);
+}
+function firstText(f){ const b=f.body.find(x=>x.t==="p"); return b? T(b) : ""; }
+function renderTiles(n){
+  const sb=document.getElementById("sbody");
+  sb.innerHTML = `<p class="intro">${esc(firstText(n.facets[0]))}</p><div class="tiles">`+n.facets.map((f,i)=>{
+    const hint=firstText(f); const short = hint.length>110 ? hint.slice(0,107).replace(/\s+\S*$/,"")+"…" : hint;
+    return `<button class="tile" type="button" data-f="${f.id}"><span class="num">0${i+1}</span><span class="big">${esc(T(f.n))}</span><span class="hint">${esc(short)}</span><span class="go">→</span></button>`;
+  }).join("")+`</div>`;
+  sb.querySelectorAll(".tile").forEach(t=>t.addEventListener("click",()=>openFacet(t.dataset.f, t)));
+  document.getElementById("backbtn").hidden=true;
+}
+function openFacet(fid, fromTile){
+  const n=NODES.find(x=>x.id===state.node), f=n.facets.find(x=>x.id===fid); state.facet=fid;
+  const sb=document.getElementById("sbody");
+  // origin of the grow animation = the tile that was clicked
+  let ox="50%", oy="50%";
+  if(fromTile){ const r=fromTile.getBoundingClientRect(), s=sb.getBoundingClientRect(); ox=((r.left+r.width/2-s.left)/s.width*100)+"%"; oy=((r.top+r.height/2-s.top)/s.height*100)+"%"; }
+  sb.innerHTML = `<div class="detail" style="--ox:${ox};--oy:${oy}">
+      <div class="tabs">${n.facets.map(x=>`<button class="tab" type="button" data-f="${x.id}" ${x.id===fid?'aria-current="true"':''}>${esc(T(x.n))}</button>`).join("")}</div>
+      <div class="dcontent"><h2>${esc(T(f.n))}</h2>${f.body.map(renderBlock).join("")}</div>
+    </div>`;
+  sb.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{ if(t.dataset.f!==state.facet) openFacet(t.dataset.f); }));
+  document.getElementById("backbtn").hidden=false;
+  renderCrumbs();
+}
+function backToTiles(){
+  const n=NODES.find(x=>x.id===state.node); const d=document.querySelector(".detail");
+  state.facet=null;
+  if(d && !reduce){ d.classList.add("leaving"); setTimeout(()=>renderTiles(n),330);} else renderTiles(n);
+  renderCrumbs();
+}
+function cell(c){ if(c && c.num!==undefined) return '<td class="num">'+esc(c.num)+'</td>'; return '<td>'+esc(T(c))+'</td>'; }
+function renderBlock(b){
+  switch(b.t){
+    case "p": return '<p'+(b.lead?' class="lead"':'')+'>'+esc(T(b))+'</p>';
+    case "h": return '<h3>'+esc(T(b))+'</h3>';
+    case "ul": return '<ul>'+b.items.map(i=>'<li>'+esc(T(i))+'</li>').join("")+'</ul>';
+    case "steps": return '<ol class="steps">'+b.items.map(i=>'<li>'+esc(T(i))+'</li>').join("")+'</ol>';
+    case "stat": return '<div class="stat'+(b.priv?' priv':'')+'">'+b.items.map(i=>'<div><b>'+esc(i.v)+'</b><small>'+esc(T(i.l))+'</small></div>').join("")+'</div>';
+    case "tbl": return '<div class="tblwrap"><table class="tbl"><thead><tr>'+b.head.map(h=>'<th>'+esc(h.num!==undefined?h.num:T(h))+'</th>').join("")+'</tr></thead><tbody>'+b.rows.map(r=>'<tr>'+r.map(cell).join("")+'</tr>').join("")+'</tbody></table></div>';
+    case "note": return '<div class="note'+(b.gold?' gold':'')+'">'+esc(T(b))+'</div>';
+  }
+  return "";
+}
+function renderCrumbs(){
+  const n=NODES.find(x=>x.id===state.node);
+  let h=`<button type="button" onclick="closeAll()">${UI[LANG].home}</button>`;
+  if(n){ h+=`<span class="sep">›</span>`; h+= state.facet ? `<button type="button" onclick="backToTiles()">${esc(T(n.t))}</button>` : `<span class="cur">${esc(T(n.t))}</span>`; }
+  if(n && state.facet){ const f=n.facets.find(x=>x.id===state.facet); h+=`<span class="sep">›</span><span class="cur">${esc(T(f.n))}</span>`; }
+  if(!n) h=`<span class="cur">${UI[LANG].home}</span>`;
+  crumbsEl.innerHTML=h;
+}
+
+
+// ---------- Q&A panel ----------
+const qaEl=document.getElementById("qa"), qaInner=document.getElementById("qainner");
+let qaState={on:false, group:"all", q:"", open:null, lens:"comp", prep:false};
+// Prep mode is unlocked with the admin password; the private data is fetched from the server, never shipped in this page.
+function setPrep(on){ qaState.prep=on; document.getElementById("pfbtn").hidden=!on; if(!on && pfState.on) closePF(); try{localStorage.setItem("cee-prep",on?"1":"0");}catch(e){} if(!on){ qaState.lens="comp"; if(qaState.group==="gaps"||QA_GROUPS.some(g=>g.id===qaState.group)) qaState.group="all"; } renderQA(); if(pfState.on) renderPF(); }
+async function loadPrep(password){
+  const r=await fetch("/api/prep",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(password?{password}:{})});
+  if(!r.ok) return false;
+  const d=await r.json();
+  for(const g of d.gaps){ if(QA[g.i]) QA[g.i].gap=g.gap; }
+  PORTFOLIO=d.portfolio; PREP_LOADED=true; return true;
+}
+function askPrep(){
+  const box=document.getElementById("prepask"); box.hidden=false; box.querySelector("input").value=""; box.querySelector(".err").hidden=true; box.querySelector("input").focus();
+}
+async function submitPrep(ev){
+  ev.preventDefault(); const box=document.getElementById("prepask"); const pw=box.querySelector("input").value;
+  const ok=await loadPrep(pw); if(!ok){ box.querySelector(".err").hidden=false; return; }
+  box.hidden=true; setPrep(true); if(!qaState.on) openQA();
+}
+function togglePrep(){ if(qaState.prep){ setPrep(false); return; } if(PREP_LOADED){ setPrep(true); return; } askPrep(); }
+function togglePrepLegacy(){ qaState.prep=!qaState.prep; document.getElementById("pfbtn").hidden=!qaState.prep; if(!qaState.prep && pfState.on) closePF(); try{localStorage.setItem("cee-prep",qaState.prep?"1":"0");}catch(e){} if(!qaState.prep){ qaState.lens="comp"; if(qaState.group==="gaps"||QA_GROUPS.some(g=>g.id===qaState.group)) qaState.group="all"; } renderQA(); }
+function openQAFor(comp){ openQA(); qaState.lens="comp"; qaState.group=comp; qaState.open=null; renderQA(); }
+function toggleQA(){ qaState.on ? closeQA() : openQA(); }
+function openQA(){
+  if(pfState.on) closePF();
+  if(state.node) closeAll();
+  if(tour.on) pauseTour();
+  qaState.on=true; qaEl.hidden=false; world.classList.add("away");
+  document.getElementById("qabtn").classList.add("on");
+  renderQA(); const inp=qaInner.querySelector("#qasearch"); if(inp && matchMedia("(min-width:761px)").matches) inp.focus();
+}
+function closeQA(){
+  qaState.on=false; qaEl.hidden=true;
+  document.getElementById("qabtn").classList.remove("on");
+  if(!state.node){ world.classList.remove("away"); if(tour.on) showStep(tour.i,false); }
+}
+function qaMatches(it){
+  if(qaState.group==="gaps" && !it.gap) return false;
+  if(qaState.group!=="all" && qaState.group!=="gaps"){ if(qaState.lens==="who" ? it.g!==qaState.group : it.c!==qaState.group) return false; }
+  if(!qaState.q) return true;
+  const hay=(T(it.q)+" "+T(it.a)+" "+(it.gap?T(it.gap):"")).toLowerCase();
+  return qaState.q.toLowerCase().split(/\s+/).every(w=>hay.includes(w));
+}
+function renderQA(){
+  const u=UI[LANG]; const gname=id=>T(QA_GROUPS.find(g=>g.id===id).n); const cname=id=>T(NODES.find(n=>n.id===id).t);
+  const items=QA.map((it,i)=>({...it,i})).filter(qaMatches);
+  const gaps=QA.filter(x=>x.gap).length, prep=qaState.prep, who=prep&&qaState.lens==="who";
+  qaInner.innerHTML=`
+    <div class="qahead">
+      <div><p class="tag" style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 6px">${u.qa}</p>
+        <h2>${u.qa_title}</h2><p>${prep?u.qa_prep_on:u.qa_sub}</p>
+        <div class="count">${items.length} / ${QA.length} ${u.qa_n}${prep?` · ${gaps} ${u.qa_gaps.toLowerCase()}`:""}</div></div>
+      <div class="sactions">${prep?`<div class="lang" role="group"><button type="button" data-lens="comp" aria-pressed="${!who}">${u.qa_bycomp}</button><button type="button" data-lens="who" aria-pressed="${who}">${u.qa_bywho}</button></div>`:""}
+        <button class="ibtn round" type="button" aria-label="${u.close}" onclick="closeQA()">×</button></div>
+    </div>
+    <div class="qatools"><input id="qasearch" type="search" placeholder="${u.qa_search}" value="${esc(qaState.q)}" autocomplete="off"></div>
+    <div class="chips">
+      <button class="chip" type="button" data-g="all" aria-pressed="${qaState.group==="all"}">${u.qa_all}</button>
+      ${who ? QA_GROUPS.map(g=>`<button class="chip" type="button" data-g="${g.id}" aria-pressed="${qaState.group===g.id}">${esc(T(g.n))}</button>`).join("")
+            : QA_COMPS.map(c=>`<button class="chip" type="button" data-g="${c}" aria-pressed="${qaState.group===c}">${esc(cname(c))}</button>`).join("")}
+      ${prep?`<button class="chip gap" type="button" data-g="gaps" aria-pressed="${qaState.group==="gaps"}">◆ ${u.qa_gaps}</button>`:""}
+    </div>
+    <div class="qalist" id="qalist">${items.length? items.map(it=>`
+      <div class="qi${qaState.open===it.i?' open':''}" data-i="${it.i}">
+        <button class="qq" type="button"><span class="who">${esc(who?gname(it.g):cname(it.c))}</span><span class="txt">${esc(T(it.q))}</span>${prep&&it.gap?`<span class="badge">${u.qa_todecide}</span>`:''}<span class="car">›</span></button>
+        <div class="qa-a">${esc(T(it.a))}${prep&&it.gap?`<div class="gapnote"><b>◆ ${u.qa_todecide}</b>${esc(T(it.gap))}</div>`:''}</div>
+      </div>`).join("") : `<div class="qaempty">${u.qa_none}</div>`}</div>`;
+  qaInner.querySelectorAll("[data-lens]").forEach(b=>b.addEventListener("click",()=>{ qaState.lens=b.dataset.lens; qaState.group="all"; qaState.open=null; renderQA(); }));
+  const inp=qaInner.querySelector("#qasearch");
+  inp.addEventListener("input",()=>{ qaState.q=inp.value; const pos=inp.selectionStart; renderQA(); const n=qaInner.querySelector("#qasearch"); n.focus(); n.setSelectionRange(pos,pos); });
+  qaInner.querySelectorAll(".chip").forEach(c=>c.addEventListener("click",()=>{ qaState.group=c.dataset.g; qaState.open=null; renderQA(); }));
+  qaInner.querySelectorAll(".qi .qq").forEach(b=>b.addEventListener("click",()=>{ const i=+b.parentElement.dataset.i; qaState.open = qaState.open===i ? null : i; qaInner.querySelectorAll(".qi").forEach(d=>d.classList.toggle("open",+d.dataset.i===qaState.open)); }));
+}
+
+
+// ---------- Feedback panel ----------
+const fbEl=document.getElementById("fb"), fbInner=document.getElementById("fbinner");
+let fbState={on:false, rating:0, sent:false, busy:false, err:false, a:{q1:"",q2:"",q3:""}};
+function toggleFB(){ fbState.on ? closeFB() : openFB(); }
+function openFB(){
+  if(qaState.on) closeQA(); if(pfState.on) closePF(); if(state.node) closeAll(); if(tour.on) pauseTour();
+  fbState.on=true; fbEl.hidden=false; world.classList.add("away");
+  document.getElementById("fbbtn").classList.add("on"); renderFB();
+}
+function closeFB(){
+  fbState.on=false; fbEl.hidden=true; document.getElementById("fbbtn").classList.remove("on");
+  if(!state.node && !qaState.on && !pfState.on){ world.classList.remove("away"); if(tour.on) showStep(tour.i,false); }
+}
+function renderFB(){
+  const u=UI[LANG];
+  if(fbState.sent){
+    fbInner.innerHTML=`<div class="qahead"><div><h2>${u.fb_title}</h2><p>${u.fb_sent}</p></div><div class="sactions"><button class="ibtn round" type="button" onclick="closeFB()" aria-label="${u.close}">×</button></div></div>
+      <div class="fbform"><div class="row" style="justify-content:flex-start"><button class="ibtn" type="button" onclick="fbState.sent=false;fbState.rating=0;fbState.a={q1:'',q2:'',q3:''};renderFB()">${u.fb_more}</button></div></div>`;
+    return;
+  }
+  fbInner.innerHTML=`<div class="qahead"><div><h2>${u.fb_title}</h2><p>${u.fb_sub}</p></div><div class="sactions"><button class="ibtn round" type="button" onclick="closeFB()" aria-label="${u.close}">×</button></div></div>
+    <form class="fbform" onsubmit="sendFB(event)">
+      <p class="lbl">${u.fb_rate}</p>
+      <div class="scale" role="radiogroup">${u.fb_scale.map((t,i)=>`<button type="button" class="chip${fbState.rating===i+1?' sel':''}" data-r="${i+1}" aria-pressed="${fbState.rating===i+1}"><b>${i+1}</b> ${esc(t)}</button>`).join("")}</div>
+      <label><span class="lbl">${u.fb_q1}</span><textarea name="q1" rows="3">${esc(fbState.a.q1)}</textarea></label>
+      <label><span class="lbl">${u.fb_q2}</span><textarea name="q2" rows="3">${esc(fbState.a.q2)}</textarea></label>
+      <label><span class="lbl">${u.fb_q3}</span><textarea name="q3" rows="3">${esc(fbState.a.q3)}</textarea></label>
+      ${fbState.err?`<p class="err">${u.fb_err}</p>`:""}
+      <div class="row"><button class="ibtn gold" type="submit" ${fbState.busy?"disabled":""}>${u.fb_send}</button></div>
+    </form>`;
+  fbInner.querySelectorAll(".scale .chip").forEach(b=>b.addEventListener("click",()=>{ fbState.rating=+b.dataset.r; captureFB(); renderFB(); }));
+}
+function captureFB(){ const f=fbInner.querySelector("form"); if(!f) return; fbState.a={q1:f.q1.value,q2:f.q2.value,q3:f.q3.value}; }
+async function sendFB(ev){
+  ev.preventDefault(); captureFB();
+  if(!fbState.rating && !fbState.a.q1 && !fbState.a.q2 && !fbState.a.q3) return;
+  fbState.busy=true; fbState.err=false; renderFB();
+  try{
+    const r=await fetch("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({rating:fbState.rating||null, strongest:fbState.a.q1, weakest:fbState.a.q2, missing:fbState.a.q3, lang:LANG, context:state.node||(tour.on?"tour":"home")})});
+    if(!r.ok) throw new Error(r.status);
+    fbState.sent=true;
+  }catch(e){ fbState.err=true; }
+  fbState.busy=false; renderFB();
+}
+
+// ---------- Portfolio panel (prep mode only) ----------
+const pfEl=document.getElementById("pf"), pfInner=document.getElementById("pfinner");
+let pfState={on:false, open:null, mode:"all"};
+function togglePF(){ pfState.on ? closePF() : openPF(); }
+function openPF(){
+  if(!qaState.prep) return;
+  if(qaState.on) closeQA(); if(state.node) closeAll(); if(tour.on) pauseTour();
+  pfState.on=true; pfEl.hidden=false; world.classList.add("away");
+  document.getElementById("pfbtn").classList.add("on"); renderPF();
+}
+function closePF(){
+  pfState.on=false; pfEl.hidden=true; document.getElementById("pfbtn").classList.remove("on");
+  if(!state.node && !qaState.on){ world.classList.remove("away"); if(tour.on) showStep(tour.i,false); }
+}
+function countMissing(o){ let n=0; const chk=(obj,keys)=>keys.forEach(k=>{ if(!obj||obj[k]===undefined||String(obj[k]).trim()==="") n++; }); chk(o.origin,["date","how","office"]); if(!(o.origin.sage&&(o.origin.sage.who||o.origin.sage.verdict))) n++; chk(o.customer,["name","type","decider","budget","deadline","procurement"]); chk(o.company,["name","ipheld","capacity"]); chk(o.project,["deliverable","format","size","revenue","models","risks"]); chk(o.ip,["moment","right","reuse"]); chk(o.money,["advance","capital","tier","stack","standard"]); chk(o.assess,["verdict","decision","next"]); return n; }
+const pfElig = o => (o.elig!==undefined ? !!o.elig : (o.ipcase!=="buyout" && o.ipcase!=="licin"));
+function renderPF(){
+  const u=UI[LANG], items=PORTFOLIO.filter(o=>pfState.mode==="all"||o.mode===pfState.mode);
+  const o=PORTFOLIO.find(x=>x.id===pfState.open);
+  const head=`<div class="qahead"><div><p class="tag" style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:0 0 6px">${u.pf} · ${u.qa_prep}</p>
+      <h2>${o?esc(o.title):u.pf_title}</h2>${o?"":`<p>${u.pf_sub}</p>`}</div>
+      <div class="sactions">${o?`<button class="ibtn" type="button" id="pfback">← ${u.pf_back}</button>`:""}<button class="ibtn round" type="button" aria-label="${u.close}" onclick="closePF()">×</button></div></div>`;
+  if(!o){
+    const n=PORTFOLIO.length, push=PORTFOLIO.filter(x=>x.mode==="PUSH").length, elig=PORTFOLIO.filter(pfElig).length, drafts=PORTFOLIO.filter(x=>x.confidence!=="confirmed"&&x.confidence!=="validated").length;
+    pfInner.innerHTML=head+`
+      <div class="pfstats"><div><b>${n}</b><small>${u.pf_n}</small></div><div><b>${push} / ${n-push}</b><small>PUSH / PULL</small></div><div><b>${elig}</b><small>${u.pf_eligible.toLowerCase()}</small></div><div><b>${drafts}</b><small>${u.pf_draft.toLowerCase()}</small></div></div>
+      <div class="chips"><button class="chip" data-m="all" aria-pressed="${pfState.mode==="all"}">${u.pf_all}</button><button class="chip" data-m="PUSH" aria-pressed="${pfState.mode==="PUSH"}">PUSH</button><button class="chip" data-m="PULL" aria-pressed="${pfState.mode==="PULL"}">PULL</button></div>
+      <div class="pfgrid">${items.map(x=>`<button class="pfcard" type="button" data-id="${x.id}">
+        <div class="top"><span class="pill ${x.mode.toLowerCase()}">${x.mode}</span><span class="pill">${esc(T(PF_SECTORS[x.sector]))}</span>${x.confidence!=="confirmed"&&x.confidence!=="validated"?`<span class="pill draft">${u.pf_draft}</span>`:""}${x.restructured?`<span class="pill ok">↻ ${u.pf_restructured} ${esc(PORTFOLIO.find(y=>y.id===x.restructured).title.split(" — ")[0])}</span>`:""}</div>
+        <h3>${esc(x.title)}</h3>
+        <div class="meta">${esc(x.year)} · ${esc(x.customer.type||"")}</div>
+        <div class="sig">${esc(x.origin.how)}</div>
+        <div class="foot"><span>${esc(T(PF_IPNAME[x.ipcase]))} · ${pfElig(x)?u.pf_eligible:u.pf_notelig}</span><span class="stg">${esc(T(PF_STAGENAME[x.stage]))}</span></div></button>`).join("")}</div>`;
+    pfInner.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{pfState.mode=c.dataset.m; renderPF();});
+    pfInner.querySelectorAll(".pfcard").forEach(c=>c.onclick=()=>{pfState.open=c.dataset.id; renderPF(); pfInner.querySelector(".sheet").scrollTop=0;});
+  } else {
+    const tc=v=>(v===undefined||v===null||String(v).trim()==="")?`<span class="tc">${u.pf_tc}</span>`:esc(String(v));
+    const facts=(fields,obj)=>`<div class="facts">${Object.keys(fields).map(k=>`<div><b>${fields[k]}</b>${tc(obj[k])}</div>`).join("")}</div>`;
+    const blk=(i,body)=>`<section class="blk"><h3><span class="n">${i+1}</span>${u.pf_blocks[i]}</h3>${body}</section>`;
+    const sc=o.assess.scores, keys=["export","viability","ip","capacity"], tot=keys.reduce((a,k)=>a+sc[k],0);
+    const sage=o.origin.sage||{}; const sageTxt=(sage.who||sage.date||sage.verdict)?[sage.who,sage.date,sage.verdict].filter(Boolean).join(" · "):"";
+    const originObj={date:o.origin.date, how:o.origin.how, office:[o.origin.office,o.origin.producer].filter(Boolean).join(" · "), sage:sageTxt};
+    const missing=countMissing(o);
+    pfInner.innerHTML=head+`<div class="sheet">
+      <div class="top" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><span class="pill ${o.mode.toLowerCase()}">${o.mode}</span><span class="pill">${esc(T(PF_SECTORS[o.sector]))}</span><span class="pill ${pfElig(o)?'ok':'no'}">${esc(T(PF_IPNAME[o.ipcase]))} · ${pfElig(o)?u.pf_eligible:u.pf_notelig}</span>${o.eligWhy?`<span class="pill no">${esc(o.eligWhy)}</span>`:''}<span class="pill draft">${u.pf_conf[o.confidence||"draft"]}</span><span class="pill" id="pfmiss" style="border-color:var(--gold);color:var(--gold-2)" hidden></span>${o.restructured?`<button class="pill ok" type="button" data-go="${o.restructured}" style="cursor:pointer">↻ ${u.pf_original}: ${esc(PORTFOLIO.find(y=>y.id===o.restructured).title.split(" — ")[0])}</button>`:""}${(()=>{const r=PORTFOLIO.find(y=>y.restructured===o.id);return r?`<button class="pill ok" type="button" data-go="${r.id}" style="cursor:pointer">↻ ${esc(r.title.split(" — ")[0])}</button>`:""})()}</div>
+      <div class="stages">${PF_STAGES.map((st,k)=>`<span class="${PF_STAGES.indexOf(o.stage)>=k?'done':''}${o.stage===st?' cur':''}">${esc(T(PF_STAGENAME[st]))}</span>`).join("")}</div>
+      ${blk(0, facts(u.pf_of, originObj))}
+      ${blk(1, facts(u.pf_cf, o.customer))}
+      ${blk(2, facts(u.pf_cof, o.company))}
+      ${blk(3, facts(u.pf_pf, o.project))}
+      ${o.visuals&&o.visuals.length?`<section class="blk"><h3><span class="n">◫</span>${u.pf_visuals}</h3><div class="vis">${o.visuals.map((v,k)=>`<figure><img src="${v.src}" alt="${esc(v.cap)}" loading="lazy" data-k="${k}"><figcaption>${esc(v.cap)}</figcaption></figure>`).join("")}</div></section>`:""}
+      ${blk(4, `<div class="tblwrap"><table class="tbl iptbl"><thead><tr>${u.pf_ipcols.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${o.ip.rows.map(r=>`<tr class="${r.asset&&r.asset!=="n/a"?"":"na"}"><td>${esc(r.layer)}</td><td>${tc(r.asset)}</td><td>${tc(r.ownerNow)}</td><td>${tc(r.ownerAfter)}</td><td>${tc(r.protectable)}</td><td>${tc(r.registered)}</td><td>${tc(r.territory)}</td></tr>`).join("")}</tbody></table></div>
+        <div class="facts">${Object.keys(u.pf_ipf).map(k=>`<div><b>${u.pf_ipf[k]}</b>${k==="target"?esc(T(PF_IPNAME[o.ip.target]||{en:o.ip.target,fr:o.ip.target})):tc(o.ip[k])}</div>`).join("")}</div>`)}
+      ${blk(5, facts(u.pf_mf, o.money))}
+      ${blk(6, `<div class="grid4">${keys.map((kk,j)=>`<div><small>${u.pf_grid[j]}</small><div class="bar"><i style="width:${sc[kk]*20}%"></i></div><b>${sc[kk]} / 5</b><div class="rat">${tc(o.assess.rationale&&o.assess.rationale[kk])}</div></div>`).join("")}</div><div style="font-family:var(--mono);font-size:12px;color:var(--gold-2);margin:8px 0 10px">${tot} / 20</div>${facts(u.pf_af, o.assess)}`)}
+      <div class="pfnote gold"><b>${u.pf_engine}</b>${esc(o.engine)}</div>
+      <div class="pfnote"><b>${u.pf_lessons}</b>${esc(o.lessons)}</div></div>`;
+    const nm=pfInner.querySelectorAll(".sheet .tc").length, pm=pfInner.querySelector("#pfmiss"); if(nm){ pm.hidden=false; pm.textContent=nm+" "+u.pf_missing; }
+    pfInner.querySelectorAll(".vis img").forEach(im=>im.onclick=()=>{ const lb=document.createElement("div"); lb.className="lightbox"; lb.innerHTML=`<img src="${im.src}" alt=""><p>${esc(im.alt)}</p>`; lb.onclick=()=>lb.remove(); document.body.appendChild(lb); });
+    pfInner.querySelector("#pfback").onclick=()=>{pfState.open=null; renderPF();};
+    pfInner.querySelectorAll("[data-go]").forEach(b=>b.onclick=()=>{pfState.open=b.dataset.go; renderPF(); pfInner.querySelector(".sheet").scrollTop=0;});
+  }
+}
+
+// ---------- guided tour ----------
+const capEl=document.getElementById("caption");
+function toggleTour(){ tour.on ? endTour() : startTour(); }
+function startTour(){
+  if(pfState.on) closePF();
+  if(qaState.on) closeQA();
+  if(state.node) closeAll();
+  tour.on=true; tour.i=0; tour.playing=true;
+  world.classList.add("tour");
+  document.getElementById("tourbtn").classList.add("on");
+  document.getElementById("tourlbl").textContent=UI[LANG].tour_exit;
+  document.querySelector("#tourbtn .ico").textContent="■";
+  showStep(0,true);
+}
+function endTour(){
+  tour.on=false; tour.playing=false; clearTimeout(tour.timer);
+  world.classList.remove("tour"); highlight(null);
+  nodesEl.querySelectorAll(".node.focus").forEach(d=>d.classList.remove("focus"));
+  capEl.classList.remove("show");
+  document.getElementById("tourbtn").classList.remove("on");
+  document.getElementById("tourlbl").textContent=UI[LANG].tour;
+  document.querySelector("#tourbtn .ico").textContent="▶";
+  if(!state.node) fitCamera();
+}
+function pauseTour(){ tour.playing=false; clearTimeout(tour.timer); capEl.classList.remove("show"); }
+function showStep(i,resetTimer){
+  tour.i=i; const st=TOUR[i], n=NODES.find(x=>x.id===st.node);
+  nodesEl.querySelectorAll(".node").forEach(d=>d.classList.toggle("focus",d.dataset.id===st.node));
+  flyToTour(n);
+  highlight(st.flows.length?st.flows:flowsOf(st.node));
+  const u=UI[LANG], last=i===TOUR.length-1;
+  capEl.className="caption show "+n.kind;
+  capEl.innerHTML=`<div class="cbody">
+    <div class="ctop"><span class="step">${u.step} ${i+1} ${u.of} ${TOUR.length} · ${esc(T(n.t))}</span>
+      <span class="dots">${TOUR.map((_,k)=>`<i class="${k<i?'done':k===i?'cur':''}" data-k="${k}" title="${u.step} ${k+1}"></i>`).join("")}</span></div>
+    <h3>${esc(T(st.h))}</h3><p>${esc(T(st.p))}</p>
+    <div class="cbar">
+      <button class="ibtn" type="button" id="tprev" ${i===0?'disabled':''}>← <span class="lbl">${u.prev}</span></button>
+      <button class="ibtn" type="button" id="tplay" aria-label="${tour.playing?u.pause:u.play}">${tour.playing?'❚❚':'▶'}</button>
+      <button class="ibtn primary" type="button" id="tnext"><span class="lbl">${last?u.finish:u.next}</span> ${last?'✓':'→'}</button>
+      <button class="ibtn explore" type="button" id="texplore">${u.explore} ↗</button>
+    </div></div>
+    <div class="prog"><i id="tprog"></i></div>`;
+  capEl.querySelector("#tprev").onclick=()=>go(i-1);
+  capEl.querySelector("#tnext").onclick=()=>last?endTour():go(i+1);
+  capEl.querySelector("#tplay").onclick=()=>{ tour.playing=!tour.playing; showStep(i,true); };
+  capEl.querySelector("#texplore").onclick=()=>openNode(st.node);
+  capEl.querySelectorAll(".dots i").forEach(d=>d.onclick=()=>go(+d.dataset.k));
+  clearTimeout(tour.timer);
+  const pr=capEl.querySelector("#tprog");
+  if(tour.playing && !last){
+    pr.style.transitionDuration=TOUR_STEP_MS+"ms";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>pr.classList.add("run")));
+    tour.timer=setTimeout(()=>go(i+1),TOUR_STEP_MS);
+  } else if(tour.playing && last){
+    pr.style.transitionDuration="0ms"; pr.classList.add("run");
+  }
+}
+function go(i){ if(i<0||i>=TOUR.length) return; showStep(i,true); }
+
+document.addEventListener("keydown",e=>{
+  if(e.key==="P" && e.shiftKey && !e.metaKey && !e.ctrlKey && !(e.target && /input|textarea/i.test(e.target.tagName))){ e.preventDefault(); togglePrep(); if(!qaState.on && qaState.prep) openQA(); return; }
+  if(e.key==="Escape"){ if(!document.getElementById("prepask").hidden){ document.getElementById("prepask").hidden=true; } else if(fbState.on){ closeFB(); } else if(pfState.on){ if(pfState.open){pfState.open=null; renderPF();} else closePF(); } else if(qaState.on) closeQA(); else if(state.facet) backToTiles(); else if(state.node) closeAll(); else if(tour.on) endTour(); }
+  if(tour.on && !state.node){ if(e.key==="ArrowRight") go(tour.i+1); if(e.key==="ArrowLeft") go(tour.i-1); if(e.key===" "){ e.preventDefault(); tour.playing=!tour.playing; showStep(tour.i,true); } }
+});
+window.addEventListener("resize",()=>{ if(state.node){ const n=NODES.find(x=>x.id===state.node); flyTo(n); setRect(stageTargetRect()); } else if(tour.on){ flyToTour(NODES.find(x=>x.id===TOUR[tour.i].node)); } else fitCamera(); });
+document.addEventListener("pointermove",e=>{ const sp=document.getElementById("spot"); sp.style.setProperty("--mx",(e.clientX/innerWidth*100)+"%"); sp.style.setProperty("--my",(e.clientY/innerHeight*100)+"%"); },{passive:true});
+
+// ---------- language ----------
+function applyUI(){
+  document.querySelectorAll("[data-i18n]").forEach(e=>e.textContent=UI[LANG][e.dataset.i18n]);
+  document.getElementById("lang-en").setAttribute("aria-pressed",LANG==="en");
+  document.getElementById("lang-fr").setAttribute("aria-pressed",LANG==="fr");
+  document.documentElement.lang = LANG==="fr" ? "fr-CA" : "en-CA";
+  document.getElementById("tourlbl").textContent = tour.on ? UI[LANG].tour_exit : UI[LANG].tour;
+  document.getElementById("qalbl").textContent = UI[LANG].qa;
+  document.getElementById("pflbl").textContent = UI[LANG].pf;
+  document.getElementById("fblbl").textContent = UI[LANG].fb;
+  document.getElementById("pfbtn").hidden = !qaState.prep;
+}
+function setLang(l){
+  LANG=l; try{localStorage.setItem("cee-lang",l);}catch(e){}
+  applyUI(); renderFlows(); renderNodes();
+  if(state.node){ const n=NODES.find(x=>x.id===state.node); renderStage(n); if(state.facet) openFacet(state.facet); }
+  else if(tour.on){ showStep(tour.i,true); }
+  if(qaState.on) renderQA();
+  if(pfState.on) renderPF();
+  if(fbState.on) renderFB();
+  renderCrumbs();
+}
+applyUI(); renderFlows(); renderNodes(); fitCamera(); renderCrumbs();
+fetch("/api/ping",{method:"POST"}).then(r=>r.ok?r.json():null).then(d=>{ if(d&&d.name){ const w=document.getElementById("who"); w.textContent=d.name; w.hidden=false; } }).catch(()=>{});
+try{ if(localStorage.getItem("cee-prep")==="1"){ loadPrep().then(ok=>{ if(ok) setPrep(true); else localStorage.setItem("cee-prep","0"); }); } }catch(e){}
+if(!reduce){ flowsSvg.classList.add("enter"); setTimeout(()=>flowsSvg.classList.remove("enter"),2600); }
+</script>
+
+</body></html>
