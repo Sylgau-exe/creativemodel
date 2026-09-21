@@ -58,16 +58,21 @@
       <div class="tile"><b id="t-visits">–</b><small>page opens</small></div>
       <div class="tile"><b id="t-feedback">–</b><small>comments</small></div>
       <div class="tile"><b id="t-rating">–</b><small>average rating / 5</small></div>
+      <div class="tile"><b id="t-opps">–</b><small>projects proposed</small></div>
     </div>
     <div class="bar">
       <button class="ghost" type="button" onclick="load()">Refresh</button>
       <a href="/api/admin?csv=visitors" download><button class="ghost" type="button">Visitors CSV</button></a>
       <a href="/api/admin?csv=feedback" download><button class="ghost" type="button">Feedback CSV</button></a>
+      <a href="/api/admin?csv=opportunities" download><button class="ghost" type="button">Projects CSV</button></a>
       <span class="muted" id="stamp"></span>
     </div>
 
     <h2>Visitors</h2>
     <div class="tw"><table id="visitors"><thead><tr><th>Name</th><th>Email</th><th>Organization</th><th>Lang</th><th>Opens</th><th>First</th><th>Last</th></tr></thead><tbody></tbody></table></div>
+
+    <h2>Projects proposed</h2>
+    <div id="opps"></div>
 
     <h2>Feedback</h2>
     <div id="feedback"></div>
@@ -94,7 +99,12 @@ async function load(){
   document.getElementById("t-visits").textContent=d.visitors.reduce((a,v)=>a+(v.visits||0),0);
   document.getElementById("t-feedback").textContent=d.feedback.length;
   const rated=d.feedback.filter(f=>f.rating); document.getElementById("t-rating").textContent= rated.length ? (rated.reduce((a,f)=>a+f.rating,0)/rated.length).toFixed(1) : "–";
+  document.getElementById("t-opps").textContent=(d.opportunities||[]).length;
   document.getElementById("stamp").textContent="Updated "+when(new Date().toISOString());
+  const L={sector:{live:"Touring / live",film:"Film & TV",game:"Video game",imm:"Immersive",evt:"Event tech",other:"Other"},stage:{idea:"Idea",discussion:"In discussion",live:"Live"},mode:{push:"PUSH",pull:"PULL",unsure:"mode?"},ip:{own:"owns the IP",shared:"shared IP",licence:"licence",royalty:"buyer owns, royalty kept",buyout:"full buy-out",unclear:"IP undecided"}};
+  const lab=(k,v)=>v?(L[k][v]||v):"";
+  document.getElementById("opps").innerHTML = (d.opportunities||[]).map(o=>`<div class="fb"><div class="h"><b>${esc(o.title)}</b><span>${esc(o.name)} &lt;${esc(o.email)}&gt;${o.company?" · "+esc(o.company):""}${o.role?" · "+esc(o.role):""}</span><span>${when(o.at)}</span><span class="r">${[lab("mode",o.mode),lab("sector",o.sector),lab("stage",o.stage),lab("ip",o.ip)].filter(Boolean).join(" · ")}</span>${o.contact_ok===false?'<span class="muted">do not contact</span>':""}</div>
+    <dl><dt>Description</dt><dd>${esc(o.description)}</dd>${o.customer?`<dt>Customer / market</dt><dd>${esc(o.customer)}</dd>`:""}${o.size?`<dt>Size</dt><dd>${esc(o.size)}</dd>`:""}${o.timing?`<dt>Timing</dt><dd>${esc(o.timing)}</dd>`:""}${o.needs?`<dt>Needs</dt><dd>${esc(o.needs.split(",").join(", "))}</dd>`:""}${o.more?`<dt>More</dt><dd>${esc(o.more)}</dd>`:""}${o.phone?`<dt>Phone</dt><dd>${esc(o.phone)}</dd>`:""}</dl></div>`).join("") || `<p class="muted">No project sheet yet.</p>`;
   document.querySelector("#visitors tbody").innerHTML = d.visitors.map(v=>`<tr><td>${esc(v.name)}</td><td>${esc(v.email)}</td><td>${esc(v.organization||"")}</td><td>${esc((v.lang||"").toUpperCase())}</td><td class="num">${v.visits}</td><td>${when(v.first_seen)}</td><td>${when(v.last_seen)}</td></tr>`).join("") || `<tr><td colspan="7" class="muted">Nobody yet.</td></tr>`;
   const scale={en:["Not at all","Weak","Mixed","Mostly","Yes, clearly"],fr:["Pas du tout","Faible","Mitigé","En grande partie","Oui, clairement"]};
   document.getElementById("feedback").innerHTML = d.feedback.map(f=>`<div class="fb"><div class="h"><b>${esc(f.name)}</b><span>${esc(f.email)}</span><span>${when(f.at)}</span>${f.rating?`<span class="r">${f.rating}/5 · ${esc((scale[f.lang]||scale.en)[f.rating-1])}</span>`:""}<span class="muted">${esc(f.lang||"")}${f.context?" · "+esc(f.context):""}</span></div>

@@ -21,7 +21,7 @@ before(async () => {
   const { sql, ensureSchema } = await import("../lib/db.js");
   await ensureSchema();
   const q = sql();
-  await q`DELETE FROM feedback`; await q`DELETE FROM visits`; await q`DELETE FROM visitors`;
+  await q`DELETE FROM feedback`; await q`DELETE FROM visits`; await q`DELETE FROM visitors`; await q`DELETE FROM opportunities`;
 });
 after(() => server.close());
 
@@ -35,6 +35,16 @@ test("public page contains no private data and no prep auto-unlock", () => {
   assert.ok(!html.includes('location.hash==="#prep"'), "#prep hash unlock must be gone");
   assert.ok(html.includes("/api/prep"), "prep loader present");
   assert.ok(html.includes("/api/feedback"), "feedback panel present");
+  assert.ok(html.includes("/opportunity.html"), "Propose a project button present");
+  assert.ok(html.includes("snapState"), "snapshot page present (board v13+)");
+});
+
+test("project form is gated and the gate keeps ?next=", async () => {
+  const r = await get("/opportunity.html", false);
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get("location"), "/gate.html?next=%2Fopportunity.html");
+  const r2 = await post("/api/opportunity", { title: "x", description: "y" }, false);
+  assert.equal(r2.status, 401);
 });
 
 test("model is gated: no cookie → redirect to gate", async () => {
@@ -89,6 +99,15 @@ test("feedback requires a session and is stored with the visitor", async () => {
   assert.equal(r.status, 200);
 });
 
+test("project sheet is stored with the visitor and listed for the admin", async () => {
+  let r = await post("/api/opportunity", { title: "", description: "" });
+  assert.equal(r.status, 400);
+  r = await post("/api/opportunity", { title: "Big-top × series", description: "One story world, two products.", sector: "live", stage: "discussion", mode: "push", ip: "royalty", needs: ["advance", "capital", "bogus"], size: "$66M", lang: "fr", contact_ok: true });
+  assert.equal(r.status, 200);
+  const page = await get("/opportunity.html");
+  assert.equal(page.status, 200);
+});
+
 test("prep data needs the admin password; then the cookie alone works", async () => {
   let r = await post("/api/prep", {}, false);
   assert.equal(r.status, 401, "no visitor session");
@@ -124,6 +143,19 @@ test("admin page data and CSV", async () => {
   const text = await r.text();
   assert.ok(text.includes("The reserve logic."));
   assert.ok(text.replace(/^\uFEFF/, "").startsWith("at,name,email"));
+});
+
+test("admin lists projects and exports them as CSV", async () => {
+  const r = await get("/api/admin");
+  assert.equal(r.status, 200);
+  const d = await r.json();
+  assert.equal(d.opportunities.length, 1);
+  assert.equal(d.opportunities[0].title, "Big-top × series");
+  assert.equal(d.opportunities[0].needs, "advance,capital");
+  assert.equal(d.opportunities[0].email, "ada@example.com");
+  const c = await get("/api/admin?csv=opportunities");
+  assert.equal(c.status, 200);
+  assert.match(await c.text(), /Big-top/);
 });
 
 test("tampered session cookie is rejected", async () => {

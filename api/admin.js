@@ -1,6 +1,6 @@
 // POST /api/admin { password }  → sets the admin cookie
 // GET  /api/admin                → visitors, visits, feedback (admin cookie required)
-// GET  /api/admin?csv=visitors|feedback → CSV download
+// GET  /api/admin?csv=visitors|feedback|opportunities → CSV download
 import { sign, cookieHeader, safeEqual, ADMIN_COOKIE, ADMIN_TTL_MS } from "../lib/auth.js";
 import { sql, ensureSchema } from "../lib/db.js";
 import { json, readBody, admin, secret } from "../lib/http.js";
@@ -32,10 +32,12 @@ export default async function handler(req, res) {
     const q = sql();
     const url = new URL(req.url, "http://x");
     const which = url.searchParams.get("csv");
-    if (which === "visitors" || which === "feedback") {
+    if (which === "visitors" || which === "feedback" || which === "opportunities") {
       const rows = which === "visitors"
         ? await q`SELECT name, email, organization, lang, visits, first_seen, last_seen FROM visitors ORDER BY last_seen DESC`
-        : await q`SELECT at, name, email, rating, strongest, weakest, missing, lang, context FROM feedback ORDER BY at DESC`;
+        : which === "feedback"
+        ? await q`SELECT at, name, email, rating, strongest, weakest, missing, lang, context FROM feedback ORDER BY at DESC`
+        : await q`SELECT at, name, email, company, role, title, sector, stage, mode, description, customer, size, timing, ip, needs, more, phone, contact_ok, lang FROM opportunities ORDER BY at DESC`;
       res.statusCode = 200;
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${which}.csv"`);
@@ -45,7 +47,8 @@ export default async function handler(req, res) {
     const visitors = await q`SELECT id, name, email, organization, lang, visits, first_seen, last_seen FROM visitors ORDER BY last_seen DESC`;
     const visits = await q`SELECT email, at, kind FROM visits ORDER BY at DESC LIMIT 500`;
     const feedback = await q`SELECT id, at, name, email, rating, strongest, weakest, missing, lang, context FROM feedback ORDER BY at DESC`;
-    return json(res, 200, { visitors, visits, feedback });
+    const opportunities = await q`SELECT id, at, name, email, company, role, title, sector, stage, mode, description, customer, size, timing, ip, needs, more, phone, contact_ok, lang FROM opportunities ORDER BY at DESC`;
+    return json(res, 200, { visitors, visits, feedback, opportunities });
   } catch (e) {
     console.error("admin: db error", e);
     return json(res, 500, { error: "db" });

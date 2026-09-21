@@ -3,6 +3,7 @@
 import { sign, cookieHeader, safeEqual, normCode, VISITOR_COOKIE, VISITOR_TTL_MS } from "../lib/auth.js";
 import { sql, ensureSchema } from "../lib/db.js";
 import { json, readBody, clientIp, secret, clip } from "../lib/http.js";
+import { notify } from "../lib/notify.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -29,6 +30,8 @@ export default async function handler(req, res) {
   try {
     await ensureSchema();
     const q = sql();
+    const seen = await q`SELECT 1 FROM visitors WHERE lower(email) = ${email} LIMIT 1`;
+    if (!seen.length) notify(`New reviewer — ${name}${organization ? " (" + organization + ")" : ""}`, [["Name", name], ["Email", email], ["Organization", organization], ["Language", lang]]).catch(() => {});
     await q`INSERT INTO visitors (name, email, organization, lang, user_agent, ip)
             VALUES (${name}, ${email}, ${organization}, ${lang}, ${ua}, ${ip})
             ON CONFLICT (lower(email)) DO UPDATE SET

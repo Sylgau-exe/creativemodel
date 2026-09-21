@@ -1,11 +1,11 @@
 {
   "name": "creativemodel",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "private": true,
   "type": "module",
   "description": "Creative Export Engine — interactive model, private preview with access code, visitor log and feedback",
   "scripts": {
-    "build:page": "node scripts/split-board.js && python3 scripts/patch-public.py",
+    "build:page": "node scripts/split-board.cjs && python3 scripts/patch-public.py",
     "test": "node --test test/site.test.js"
   },
   "dependencies": {

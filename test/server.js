@@ -9,7 +9,7 @@ const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
 
 export async function start(port = 0) {
   const handlers = {};
-  for (const name of ["enter", "ping", "feedback", "prep", "admin"]) handlers[name] = (await import(`../api/${name}.js`)).default;
+  for (const name of ["enter", "ping", "feedback", "prep", "admin", "opportunity"]) handlers[name] = (await import(`../api/${name}.js`)).default;
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost");
@@ -18,7 +18,7 @@ export async function start(port = 0) {
       if (!h) { res.statusCode = 404; return res.end(); }
       return h(req, res);
     }
-    if (url.pathname === "/" || url.pathname === "/index.html") {
+    if (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/opportunity.html") {
       const r = await middleware(new Request("http://localhost" + req.url, { headers: { cookie: req.headers.cookie || "" } }));
       if (r) { res.statusCode = r.status; r.headers.forEach((v, k) => res.setHeader(k, v)); return res.end(); }
     }

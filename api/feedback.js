@@ -1,6 +1,7 @@
 // POST /api/feedback  { rating?, strongest?, weakest?, missing?, lang?, context? } — from a signed-in visitor.
 import { sql, ensureSchema } from "../lib/db.js";
 import { json, readBody, visitor, clip } from "../lib/http.js";
+import { notify } from "../lib/notify.js";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") return json(res, 405, { error: "method" });
@@ -20,5 +21,6 @@ export default async function handler(req, res) {
     console.error("feedback: db error", e);
     return json(res, 500, { error: "db" });
   }
+  notify(`Comment from ${v.n}${rating ? " — " + rating + "/5" : ""}`, [["From", `${v.n} <${v.e}>`], ["Rating", rating ? rating + "/5" : ""], ["Strongest", strongest], ["Weakest", weakest], ["Missing", missing], ["Context", clip(b.context, 40)]]).catch(() => {});
   return json(res, 200, { ok: true });
 }

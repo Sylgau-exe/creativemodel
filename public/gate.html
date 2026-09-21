@@ -81,7 +81,7 @@ f.addEventListener("submit", async (ev)=>{
   go.disabled=true;
   try{
     const r=await fetch("/api/enter",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)});
-    if(r.ok){ location.replace("/"); return; }
+    if(r.ok){ const nx=new URLSearchParams(location.search).get("next"); location.replace(nx && /^\/[a-z0-9_.-]+\.html(\?.*)?$/i.test(nx) ? nx : "/"); return; }
     const j=await r.json().catch(()=>({}));
     err.textContent = j.error==="code" ? UI[LANG].e_code : j.error==="fields" ? UI[LANG].e_fields : UI[LANG].e_net;
   }catch(e){ err.textContent=UI[LANG].e_net; }

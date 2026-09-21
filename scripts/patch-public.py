@@ -43,6 +43,7 @@ try{ if(localStorage.getItem("cee-prep")==="1"){ loadPrep().then(ok=>{ if(ok) se
 rep('      <button class="ibtn qabtn" id="qabtn" type="button" onclick="toggleQA()"><span id="qalbl"></span></button>\n',
 '''      <button class="ibtn qabtn" id="qabtn" type="button" onclick="toggleQA()"><span id="qalbl"></span></button>
       <button class="ibtn qabtn fbbtn" id="fbbtn" type="button" onclick="toggleFB()"><span id="fblbl"></span></button>
+      <a class="ibtn qabtn opbtn" id="opbtn" href="/opportunity.html" style="text-decoration:none"><span id="oplbl"></span></a>
 ''')
 
 # 4. Panels: feedback panel + prep password dialog.
@@ -62,14 +63,17 @@ rep('    <div class="crumbs" id="crumbs"></div>\n', '    <div class="crumbs" id=
 
 # 6. i18n labels.
 rep('qa_prep_on:"Prep mode — private view: stakeholder lens and open points",',
-    'qa_prep_on:"Prep mode — private view: stakeholder lens and open points", fb:"Your thoughts", fb_title:"Your thoughts on the model", fb_sub:"This is a working model shared for opinions. Tell us what convinces you, what does not, and what is missing.", fb_rate:"Overall, does the model hold together?", fb_scale:["Not at all","Weak","Mixed","Mostly","Yes, clearly"], fb_q1:"What is the strongest part of the model?", fb_q2:"What is the weakest part, or what would you challenge?", fb_q3:"Anything missing, unclear, or that you would add?", fb_send:"Send", fb_sent:"Thank you — your comments are recorded.", fb_more:"Send another comment", fb_err:"Could not send. Please try again.",')
+    'qa_prep_on:"Prep mode — private view: stakeholder lens and open points", fb:"Your thoughts", fb_title:"Your thoughts on the model", fb_sub:"This is a working model shared for opinions. Tell us what convinces you, what does not, and what is missing.", fb_rate:"Overall, does the model hold together?", fb_scale:["Not at all","Weak","Mixed","Mostly","Yes, clearly"], fb_q1:"What is the strongest part of the model?", fb_q2:"What is the weakest part, or what would you challenge?", fb_q3:"Anything missing, unclear, or that you would add?", fb_send:"Send", fb_sent:"Thank you — your comments are recorded.", fb_more:"Send another comment", fb_err:"Could not send. Please try again.", op:"Propose a project",')
 rep('qa_prep_on:"Mode préparation — vue privée : lecture par partie prenante et points ouverts",',
-    'qa_prep_on:"Mode préparation — vue privée : lecture par partie prenante et points ouverts", fb:"Votre avis", fb_title:"Votre avis sur le modèle", fb_sub:"Ce modèle de travail est partagé pour recueillir des opinions. Dites-nous ce qui vous convainc, ce qui ne tient pas, et ce qui manque.", fb_rate:"Dans l\\u2019ensemble, le modèle tient-il la route?", fb_scale:["Pas du tout","Faible","Mitigé","En grande partie","Oui, clairement"], fb_q1:"Quelle est la partie la plus solide du modèle?", fb_q2:"Quelle est la partie la plus faible, ou que remettriez-vous en question?", fb_q3:"Quelque chose de manquant, de flou, ou que vous ajouteriez?", fb_send:"Envoyer", fb_sent:"Merci — vos commentaires sont enregistrés.", fb_more:"Envoyer un autre commentaire", fb_err:"Envoi impossible. Veuillez réessayer.",')
+    'qa_prep_on:"Mode préparation — vue privée : lecture par partie prenante et points ouverts", fb:"Votre avis", fb_title:"Votre avis sur le modèle", fb_sub:"Ce modèle de travail est partagé pour recueillir des opinions. Dites-nous ce qui vous convainc, ce qui ne tient pas, et ce qui manque.", fb_rate:"Dans l\\u2019ensemble, le modèle tient-il la route?", fb_scale:["Pas du tout","Faible","Mitigé","En grande partie","Oui, clairement"], fb_q1:"Quelle est la partie la plus solide du modèle?", fb_q2:"Quelle est la partie la plus faible, ou que remettriez-vous en question?", fb_q3:"Quelque chose de manquant, de flou, ou que vous ajouteriez?", fb_send:"Envoyer", fb_sent:"Merci — vos commentaires sont enregistrés.", fb_more:"Envoyer un autre commentaire", fb_err:"Envoi impossible. Veuillez réessayer.", op:"Proposer un projet",')
 
 # 7. applyUI / setLang hooks.
 rep('  document.getElementById("pflbl").textContent = UI[LANG].pf;\n',
-    '  document.getElementById("pflbl").textContent = UI[LANG].pf;\n  document.getElementById("fblbl").textContent = UI[LANG].fb;\n')
-rep('  if(pfState.on) renderPF();\n  renderCrumbs();', '  if(pfState.on) renderPF();\n  if(fbState.on) renderFB();\n  renderCrumbs();')
+    '  document.getElementById("pflbl").textContent = UI[LANG].pf;\n  document.getElementById("fblbl").textContent = UI[LANG].fb;\n  document.getElementById("oplbl").textContent = UI[LANG].op; document.getElementById("opbtn").href = "/opportunity.html?lang=" + LANG;\n')
+rep('  if(pfState.on) renderPF();\n', '  if(pfState.on) renderPF();\n  if(fbState.on) renderFB();\n')
+# board v13+: the Snapshot page and the feedback panel close each other
+if 'function openSnap(){' in s:
+    rep('function openSnap(){\n', 'function openSnap(){\n  if(typeof fbState!=="undefined" && fbState.on) closeFB();\n')
 
 # 8. Feedback panel JS.
 rep('// ---------- Portfolio panel (prep mode only) ----------',
@@ -78,13 +82,14 @@ const fbEl=document.getElementById("fb"), fbInner=document.getElementById("fbinn
 let fbState={on:false, rating:0, sent:false, busy:false, err:false, a:{q1:"",q2:"",q3:""}};
 function toggleFB(){ fbState.on ? closeFB() : openFB(); }
 function openFB(){
+  if(typeof snapState!=="undefined" && snapState.on) closeSnap();
   if(qaState.on) closeQA(); if(pfState.on) closePF(); if(state.node) closeAll(); if(tour.on) pauseTour();
   fbState.on=true; fbEl.hidden=false; world.classList.add("away");
   document.getElementById("fbbtn").classList.add("on"); renderFB();
 }
 function closeFB(){
   fbState.on=false; fbEl.hidden=true; document.getElementById("fbbtn").classList.remove("on");
-  if(!state.node && !qaState.on && !pfState.on){ world.classList.remove("away"); if(tour.on) showStep(tour.i,false); }
+  if(!state.node && !qaState.on && !pfState.on && !(typeof snapState!=="undefined" && snapState.on)){ world.classList.remove("away"); if(tour.on) showStep(tour.i,false); }
 }
 function renderFB(){
   const u=UI[LANG];
@@ -120,9 +125,14 @@ async function sendFB(ev){
 
 // ---------- Portfolio panel (prep mode only) ----------''')
 
+# 8b. Snapshot page (board v13+): add "Your thoughts" and "Propose a project" to the closing button row.
+if 'snap_foot' in s:
+    rep('<button class="ibtn" type="button" onclick="closeSnap();openQA()">${u.snap_qa}</button></div>',
+        '<button class="ibtn" type="button" onclick="closeSnap();openQA()">${u.snap_qa}</button><button class="ibtn" type="button" onclick="closeSnap();openFB()">${u.fb}</button><a class="ibtn opbtn" href="/opportunity.html" style="text-decoration:none">${u.op} ↗</a></div>')
+
 # 9. Escape closes the dialog / feedback panel first.
-rep('  if(e.key==="Escape"){ if(pfState.on){',
-    '  if(e.key==="Escape"){ if(!document.getElementById("prepask").hidden){ document.getElementById("prepask").hidden=true; } else if(fbState.on){ closeFB(); } else if(pfState.on){')
+rep('  if(e.key==="Escape"){ if(',
+    '  if(e.key==="Escape"){ if(!document.getElementById("prepask").hidden){ document.getElementById("prepask").hidden=true; } else if(fbState.on){ closeFB(); } else if(')
 
 # 10. CSS.
 rep('</style>\n\n<div class="spot" id="spot"></div>',
@@ -144,6 +154,7 @@ rep('</style>\n\n<div class="spot" id="spot"></div>',
   .prepask .tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-2);margin:0}
   .prepask label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
   .prepask input{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:10px;color:var(--ivory);font:500 15px/1 var(--body);padding:10px 12px}
+  .opbtn{border-color:rgba(79,184,173,.6);color:var(--teal-2)} .opbtn:hover{border-color:var(--teal-2)}
   .who{font-size:12px;color:var(--dim);margin-left:auto;padding-right:8px}
   .who[hidden]{display:none}
 </style>
