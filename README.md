@@ -35,6 +35,7 @@ When the board changes on claude.ai, download its HTML to `scripts/board-source.
 ## Versions
 
 - 1.0.0 — gate, visitor log, feedback, prep mode, admin (board v12).
+- 1.3.1 (2026-09-21, later) — board v14: "Why a new mechanism" opener, "Why not EDC?" comparison, sector-by-sector table, loan-not-equity wording.
 - 1.3.0 (2026-09-21) — board v13 (Snapshot front page, office → Conseil order, "Who would own it", example projects); `/opportunity.html` project form + admin listing/CSV; optional email notifications (Resend). `scripts/split-board.js` renamed `.cjs` so it runs under `"type": "module"`.
 
 ## Local checks
